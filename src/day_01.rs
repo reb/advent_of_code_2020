@@ -41,3 +41,23 @@ pub fn run() {
     println!("Not implemented yet");
     unimplemented!();
 }
+
+fn parse_to_ints(input: &str) -> Vec<u32> {
+    input
+        .lines()
+        .map(|line| line.parse())
+        .filter_map(Result::ok)
+        .collect()
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_to_ints() {
+        let input = "123\n456\n789";
+        let expected = vec![123, 456, 789];
+
+        assert_eq!(parse_to_ints(input), expected);
+    }
+}
