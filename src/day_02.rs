@@ -32,10 +32,95 @@
 /// limits of their respective policies.
 ///
 /// How many passwords are valid according to their policies?
+use regex::Regex;
 
 const INPUT: &str = include_str!("../input/day_02.txt");
 
 pub fn run() {
     println!("Not implemented yet");
     unimplemented!();
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct Password {
+    policy: Policy,
+    password: String,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct Policy {
+    min: usize,
+    max: usize,
+    char: char,
+}
+
+fn parse_passwords(input: &str) -> Vec<Password> {
+    input
+        .lines()
+        .filter_map(|line| convert_to_password(line))
+        .collect()
+}
+
+fn convert_to_password(line: &str) -> Option<Password> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"([0-9]+)-([0-9]+) (.): (.*)").unwrap();
+    }
+    let captures = RE.captures(line);
+    match captures {
+        Some(groups) => match (groups.get(1), groups.get(2), groups.get(3), groups.get(4)) {
+            (Some(min), Some(max), Some(char), Some(password)) => match (
+                min.as_str().parse(),
+                max.as_str().parse(),
+                char.as_str().chars().next(),
+                password.as_str().to_string(),
+            ) {
+                (Ok(min), Ok(max), Some(char), password) => Some(Password {
+                    password,
+                    policy: Policy { min, max, char },
+                }),
+
+                _ => None,
+            },
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_policies() {
+        let input = "1-3 a: abcde\n1-3 b: cdefg\n2-9 c: ccccccccc";
+        let passwords = vec![
+            Password {
+                password: "abcde".to_string(),
+                policy: Policy {
+                    min: 1,
+                    max: 3,
+                    char: 'a',
+                },
+            },
+            Password {
+                password: "cdefg".to_string(),
+                policy: Policy {
+                    min: 1,
+                    max: 3,
+                    char: 'b',
+                },
+            },
+            Password {
+                password: "ccccccccc".to_string(),
+                policy: Policy {
+                    min: 2,
+                    max: 9,
+                    char: 'c',
+                },
+            },
+        ];
+
+        assert_eq!(parse_passwords(input), passwords);
+    }
 }
