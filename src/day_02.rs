@@ -37,8 +37,27 @@ use regex::Regex;
 const INPUT: &str = include_str!("../input/day_02.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let passwords = parse_passwords(INPUT);
+
+    // validate passwords
+    let valid_passwords = find_valid_passwords(passwords);
+    println!(
+        "The amount of passwords valid according to their policies is: {}",
+        valid_passwords.len()
+    );
+}
+fn find_valid_passwords(passwords: Vec<Password>) -> Vec<Password> {
+    passwords
+        .into_iter()
+        .filter(|password| {
+            let char_count = password
+                .password
+                .chars()
+                .filter(|&c| c == password.policy.char)
+                .count();
+            char_count >= password.policy.min && char_count <= password.policy.max
+        })
+        .collect()
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -122,5 +141,56 @@ mod tests {
         ];
 
         assert_eq!(parse_passwords(input), passwords);
+    }
+
+    #[test]
+    fn test_find_valid_passwords() {
+        let passwords = vec![
+            Password {
+                password: "abcde".to_string(),
+                policy: Policy {
+                    min: 1,
+                    max: 3,
+                    char: 'a',
+                },
+            },
+            Password {
+                password: "cdefg".to_string(),
+                policy: Policy {
+                    min: 1,
+                    max: 3,
+                    char: 'b',
+                },
+            },
+            Password {
+                password: "ccccccccc".to_string(),
+                policy: Policy {
+                    min: 2,
+                    max: 9,
+                    char: 'c',
+                },
+            },
+        ];
+
+        let valid_passwords = vec![
+            Password {
+                password: "abcde".to_string(),
+                policy: Policy {
+                    min: 1,
+                    max: 3,
+                    char: 'a',
+                },
+            },
+            Password {
+                password: "ccccccccc".to_string(),
+                policy: Policy {
+                    min: 2,
+                    max: 9,
+                    char: 'c',
+                },
+            },
+        ];
+
+        assert_eq!(find_valid_passwords(passwords), valid_passwords);
     }
 }
