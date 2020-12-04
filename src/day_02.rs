@@ -65,10 +65,16 @@ pub fn run() {
     let passwords = parse_passwords(INPUT);
 
     // validate passwords
-    let valid_passwords = find_valid_passwords(passwords);
+    let valid_passwords = find_valid_passwords(passwords.clone());
     println!(
         "The amount of passwords valid according to their policies is: {}",
         valid_passwords.len()
+    );
+
+    let valid_toboggan_passwords = find_valid_toboggan_passwords(passwords);
+    println!(
+        "The amount of passwords valid according to the Toboggan policy is: {}",
+        valid_toboggan_passwords.len()
     );
 }
 fn find_valid_passwords(passwords: Vec<Password>) -> Vec<Password> {
@@ -85,13 +91,29 @@ fn find_valid_passwords(passwords: Vec<Password>) -> Vec<Password> {
         .collect()
 }
 
-#[derive(Debug, PartialEq, Eq)]
+fn find_valid_toboggan_passwords(passwords: Vec<Password>) -> Vec<Password> {
+    passwords
+        .into_iter()
+        .filter(|password| {
+            password
+                .password
+                .chars()
+                .enumerate()
+                .filter(|&(i, _)| i + 1 == password.policy.min || i + 1 == password.policy.max)
+                .filter(|&(_, c)| c == password.policy.char)
+                .count()
+                == 1
+        })
+        .collect()
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct Password {
     policy: Policy,
     password: String,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct Policy {
     min: usize,
     max: usize,
@@ -217,5 +239,45 @@ mod tests {
         ];
 
         assert_eq!(find_valid_passwords(passwords), valid_passwords);
+    }
+    #[test]
+    fn test_find_valid_tobaggan_passwords() {
+        let passwords = vec![
+            Password {
+                password: "abcde".to_string(),
+                policy: Policy {
+                    min: 1,
+                    max: 3,
+                    char: 'a',
+                },
+            },
+            Password {
+                password: "cdefg".to_string(),
+                policy: Policy {
+                    min: 1,
+                    max: 3,
+                    char: 'b',
+                },
+            },
+            Password {
+                password: "ccccccccc".to_string(),
+                policy: Policy {
+                    min: 2,
+                    max: 9,
+                    char: 'c',
+                },
+            },
+        ];
+
+        let valid_passwords = vec![Password {
+            password: "abcde".to_string(),
+            policy: Policy {
+                min: 1,
+                max: 3,
+                char: 'a',
+            },
+        }];
+
+        assert_eq!(find_valid_toboggan_passwords(passwords), valid_passwords);
     }
 }
