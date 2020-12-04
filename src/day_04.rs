@@ -62,12 +62,21 @@
 /// Count the number of valid passports - those that have all required fields.
 /// Treat cid as optional. In your batch file, how many passports are valid?
 use std::collections::HashMap;
+use std::slice::Iter;
 
 const INPUT: &str = include_str!("../input/day_04.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let passports = parse_passports(INPUT);
+
+    let valid_passports = passports
+        .iter()
+        .filter(|passport| valid_passport(passport))
+        .count();
+    println!(
+        "With the Country ID as an optional field, the number of valid passports is: {}",
+        valid_passports
+    );
 }
 
 type Passport = HashMap<Field, String>;
@@ -106,6 +115,23 @@ impl Field {
             _ => panic!("Unknown code found"),
         }
     }
+
+    fn required() -> Iter<'static, Field> {
+        static REQUIRED_FIELDS: [Field; 7] = [
+            Field::BirthYear,
+            Field::IssueYear,
+            Field::ExpirationYear,
+            Field::Height,
+            Field::HairColor,
+            Field::EyeColor,
+            Field::PassportID,
+        ];
+        REQUIRED_FIELDS.iter()
+    }
+}
+
+fn valid_passport(passport: &Passport) -> bool {
+    Field::required().all(|field| passport.contains_key(field))
 }
 
 fn parse_passports(input: &str) -> Vec<Passport> {
@@ -179,5 +205,47 @@ mod tests {
         let expected = vec![p1, p2, p3];
 
         assert_eq!(parse_passports(input), expected);
+    }
+
+    #[test]
+    fn test_valid_passport_true_1() {
+        let mut passport = Passport::new();
+        passport.insert(Field::EyeColor, String::from("gry"));
+        passport.insert(Field::PassportID, String::from("860033327"));
+        passport.insert(Field::ExpirationYear, String::from("2020"));
+        passport.insert(Field::HairColor, String::from("#fffffd"));
+        passport.insert(Field::BirthYear, String::from("1937"));
+        passport.insert(Field::IssueYear, String::from("2017"));
+        passport.insert(Field::CountryID, String::from("147"));
+        passport.insert(Field::Height, String::from("183cm"));
+
+        assert!(valid_passport(&passport));
+    }
+
+    #[test]
+    fn test_valid_passport_true_2() {
+        let mut passport = Passport::new();
+        passport.insert(Field::HairColor, String::from("#ae17e1"));
+        passport.insert(Field::IssueYear, String::from("2013"));
+        passport.insert(Field::ExpirationYear, String::from("2024"));
+        passport.insert(Field::EyeColor, String::from("brn"));
+        passport.insert(Field::PassportID, String::from("760753108"));
+        passport.insert(Field::BirthYear, String::from("1931"));
+        passport.insert(Field::Height, String::from("179cm"));
+
+        assert!(valid_passport(&passport));
+    }
+    #[test]
+    fn test_valid_passport_false() {
+        let mut passport = Passport::new();
+        passport.insert(Field::IssueYear, String::from("2013"));
+        passport.insert(Field::EyeColor, String::from("amb"));
+        passport.insert(Field::CountryID, String::from("350"));
+        passport.insert(Field::ExpirationYear, String::from("2023"));
+        passport.insert(Field::PassportID, String::from("028048884"));
+        passport.insert(Field::HairColor, String::from("#cfa07d"));
+        passport.insert(Field::BirthYear, String::from("1929"));
+
+        assert!(!valid_passport(&passport));
     }
 }
