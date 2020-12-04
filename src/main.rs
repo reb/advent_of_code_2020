@@ -1,3 +1,5 @@
+extern crate itertools;
+
 use std::collections::HashMap;
 use std::env;
 
