@@ -69,12 +69,35 @@
 /// Starting at the top-left corner of your map and following a slope of right 3
 /// and down 1, how many trees would you encounter?
 use std::collections::HashSet;
+use std::ops::AddAssign;
 
 const INPUT: &str = include_str!("../input/day_03.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let map = parse_map(INPUT);
+
+    let trees_hit = traverse(&map, 3, 1);
+    println!(
+        "Following a slope of right 3 and down 1, the amount of trees hit is: {}",
+        trees_hit
+    );
+}
+
+fn traverse(map: &Map, right: i32, down: i32) -> i32 {
+    /// traverse the map, reporting on how many trees were hit along the slope
+    // start at 0, 0
+    let mut location = Point { x: 0, y: 0 };
+
+    let mut trees_hit = 0;
+    while location.x < map.height as i32 {
+        // do this until the full map is traversed
+        location += Point { x: down, y: right };
+        location.wrap_horizontal(map.width as i32);
+        if map.trees.contains(&location) {
+            trees_hit += 1;
+        }
+    }
+    trees_hit
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -87,6 +110,17 @@ struct Map {
 struct Point {
     x: i32,
     y: i32,
+}
+impl AddAssign for Point {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+impl Point {
+    fn wrap_horizontal(&mut self, max_y: i32) {
+        self.y %= max_y;
+    }
 }
 type Trees = HashSet<Point>;
 
@@ -146,5 +180,27 @@ mod tests {
         };
 
         assert_eq!(parse_map(input), expected);
+    }
+
+    #[test]
+    fn test_traverse() {
+        // ..##.......
+        // #...#...#..
+        // .#....#..#.
+        // ..#.#...#.#
+        // .#...##..#.
+        // ..#.##.....
+        // .#.#.#....#
+        // .#........#
+        // #.##...#...
+        // #...##....#
+        // .#..#...#.#
+        let input = "..##.......\n#...#...#..\n.#....#..#.\n..#.#...#.#\n.#...##..#.\n..#.##.....\n.#.#.#....#\n.#........#\n#.##...#...\n#...##....#\n.#..#...#.#";
+        // cheat a bit by using parse_map to build the map
+        let map = parse_map(input);
+
+        // traverse the trees with a slope of right 3, down 1 (the example from the description)
+        // this should encounter 7 trees
+        assert_eq!(traverse(map, 3, 1), 7)
     }
 }
