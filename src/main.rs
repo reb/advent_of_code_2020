@@ -45,4 +45,4 @@ macro_rules! modules {
     };
 }
 
-modules![day_01, day_02, day_03,];
+modules![day_01, day_02, day_03, day_04,];
