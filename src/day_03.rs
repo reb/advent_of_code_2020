@@ -83,7 +83,11 @@ struct Map {
     height: usize,
     trees: Trees,
 }
-type Point = (i32, i32);
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct Point {
+    x: i32,
+    y: i32,
+}
 type Trees = HashSet<Point>;
 
 fn parse_map(input: &str) -> Map {
@@ -96,7 +100,10 @@ fn parse_map(input: &str) -> Map {
             line.chars()
                 .enumerate()
                 .filter(|&(_, c)| c == '#')
-                .map(move |(y, _)| (x as i32, y as i32))
+                .map(move |(y, _)| Point {
+                    x: x as i32,
+                    y: y as i32,
+                })
         })
         .collect();
     Map {
@@ -119,18 +126,18 @@ mod tests {
         let input = "..##.......\n#...#...#..\n.#....#..#.\n..#.#...#.#";
 
         let mut expected_trees = Trees::new();
-        expected_trees.insert((0, 2));
-        expected_trees.insert((0, 3));
-        expected_trees.insert((1, 0));
-        expected_trees.insert((1, 4));
-        expected_trees.insert((1, 8));
-        expected_trees.insert((2, 1));
-        expected_trees.insert((2, 6));
-        expected_trees.insert((2, 9));
-        expected_trees.insert((3, 2));
-        expected_trees.insert((3, 4));
-        expected_trees.insert((3, 8));
-        expected_trees.insert((3, 10));
+        expected_trees.insert(Point { x: 0, y: 2 });
+        expected_trees.insert(Point { x: 0, y: 3 });
+        expected_trees.insert(Point { x: 1, y: 0 });
+        expected_trees.insert(Point { x: 1, y: 4 });
+        expected_trees.insert(Point { x: 1, y: 8 });
+        expected_trees.insert(Point { x: 2, y: 1 });
+        expected_trees.insert(Point { x: 2, y: 6 });
+        expected_trees.insert(Point { x: 2, y: 9 });
+        expected_trees.insert(Point { x: 3, y: 2 });
+        expected_trees.insert(Point { x: 3, y: 4 });
+        expected_trees.insert(Point { x: 3, y: 8 });
+        expected_trees.insert(Point { x: 3, y: 10 });
 
         let expected = Map {
             width: 11,
