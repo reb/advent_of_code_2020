@@ -68,10 +68,76 @@
 ///
 /// Starting at the top-left corner of your map and following a slope of right 3
 /// and down 1, how many trees would you encounter?
+use std::collections::HashSet;
 
 const INPUT: &str = include_str!("../input/day_03.txt");
 
 pub fn run() {
     println!("Not implemented yet");
     unimplemented!();
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct Map {
+    width: usize,
+    height: usize,
+    trees: Trees,
+}
+type Point = (i32, i32);
+type Trees = HashSet<Point>;
+
+fn parse_map(input: &str) -> Map {
+    let height = input.lines().count();
+    let width = input.lines().next().unwrap().chars().count();
+    let trees = input
+        .lines()
+        .enumerate()
+        .flat_map(|(x, line)| {
+            line.chars()
+                .enumerate()
+                .filter(|&(_, c)| c == '#')
+                .map(move |(y, _)| (x as i32, y as i32))
+        })
+        .collect();
+    Map {
+        width,
+        height,
+        trees,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_map() {
+        // ..##.......
+        // #...#...#..
+        // .#....#..#.
+        // ..#.#...#.#
+        let input = "..##.......\n#...#...#..\n.#....#..#.\n..#.#...#.#";
+
+        let mut expected_trees = Trees::new();
+        expected_trees.insert((0, 2));
+        expected_trees.insert((0, 3));
+        expected_trees.insert((1, 0));
+        expected_trees.insert((1, 4));
+        expected_trees.insert((1, 8));
+        expected_trees.insert((2, 1));
+        expected_trees.insert((2, 6));
+        expected_trees.insert((2, 9));
+        expected_trees.insert((3, 2));
+        expected_trees.insert((3, 4));
+        expected_trees.insert((3, 8));
+        expected_trees.insert((3, 10));
+
+        let expected = Map {
+            width: 11,
+            height: 4,
+            trees: expected_trees,
+        };
+
+        assert_eq!(parse_map(input), expected);
+    }
 }
