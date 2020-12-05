@@ -61,6 +61,59 @@
 const INPUT: &str = include_str!("../input/day_05.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let highest_seat_id = INPUT
+        .lines()
+        .map(|line| convert_to_seat_id(line))
+        .max()
+        .expect("No max found");
+
+    println!(
+        "The highest seat id in the list of boarding passes is: {}",
+        highest_seat_id
+    );
+}
+
+fn convert_to_seat_id(boarding_pass: &str) -> u16 {
+    boarding_pass.chars().fold(0, |seat_id, char| {
+        (seat_id << 1)
+            + (match char {
+                'F' => 0,
+                'B' => 1,
+                'L' => 0,
+                'R' => 1,
+                _ => panic!("Unknown character in boarding pass"),
+            })
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_convert_to_seat_id_1() {
+        ///     BFFFBBFRRR: row 70, column 7, seat ID 567.
+        let boarding_pass = "BFFFBBFRRR";
+        let seat_id = 567;
+
+        assert_eq!(convert_to_seat_id(boarding_pass), seat_id);
+    }
+
+    #[test]
+    fn test_convert_to_seat_id_2() {
+        ///     FFFBBBFRRR: row 14, column 7, seat ID 119.
+        let boarding_pass = "FFFBBBFRRR";
+        let seat_id = 119;
+
+        assert_eq!(convert_to_seat_id(boarding_pass), seat_id);
+    }
+
+    #[test]
+    fn test_convert_to_seat_id_3() {
+        ///     BBFFBBFRLL: row 102, column 4, seat ID 820.
+        let boarding_pass = "BBFFBBFRLL";
+        let seat_id = 820;
+
+        assert_eq!(convert_to_seat_id(boarding_pass), seat_id);
+    }
 }
