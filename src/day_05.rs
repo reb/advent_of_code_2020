@@ -75,16 +75,25 @@
 const INPUT: &str = include_str!("../input/day_05.txt");
 
 pub fn run() {
-    let highest_seat_id = INPUT
-        .lines()
-        .map(|line| convert_to_seat_id(line))
-        .max()
-        .expect("No max found");
+    let mut seat_ids: Vec<_> = INPUT.lines().map(|line| convert_to_seat_id(line)).collect();
+    seat_ids.sort();
 
+    let highest_seat_id = seat_ids.last().expect("No max found");
     println!(
-        "The highest seat id in the list of boarding passes is: {}",
+        "The highest seat ID in the list of boarding passes is: {}",
         highest_seat_id
     );
+
+    let your_seat_id = find_gap(&seat_ids).expect("Your seat id not found");
+    println!("Your seat ID is: {}", your_seat_id);
+}
+
+fn find_gap(list: &Vec<u16>) -> Option<u16> {
+    /// Find gaps in sorted lists
+    list.iter()
+        .zip(list.iter().skip(1))
+        .find(|(&n1, &n2)| (n1 + 2) == n2) // determine the next number is 2 away
+        .map(|(n1, _)| n1 + 1) // return the number in the middle
 }
 
 fn convert_to_seat_id(boarding_pass: &str) -> u16 {
@@ -129,5 +138,13 @@ mod tests {
         let seat_id = 820;
 
         assert_eq!(convert_to_seat_id(boarding_pass), seat_id);
+    }
+
+    #[test]
+    fn test_find_gap() {
+        let sequence = vec![5, 6, 8, 9];
+        let expected = Some(7);
+
+        assert_eq!(find_gap(&sequence), expected);
     }
 }
