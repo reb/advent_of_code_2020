@@ -138,7 +138,8 @@
 /// Count the number of valid passports - those that have all required fields
 /// and valid values. Continue to treat cid as optional. In your batch file, how
 /// many passports are valid?
-use std::collections::HashMap;
+use regex::Regex;
+use std::collections::{HashMap, HashSet};
 use std::slice::Iter;
 
 const INPUT: &str = include_str!("../input/day_04.txt");
@@ -148,15 +149,25 @@ pub fn run() {
 
     let valid_passports = passports
         .iter()
-        .filter(|passport| valid_passport(passport))
+        .filter(|passport| valid_passport(passport, false))
         .count();
     println!(
         "With the Country ID as an optional field, the number of valid passports is: {}",
         valid_passports
     );
+
+    let data_validated_passports = passports
+        .iter()
+        .filter(|passport| valid_passport(passport, true))
+        .count();
+    println!(
+        "With the stricter data validation, the number of valid passports is: {}",
+        data_validated_passports
+    )
 }
 
 type Passport = HashMap<Field, String>;
+type ValidationFn = fn(&String) -> bool;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 enum Field {
@@ -193,22 +204,100 @@ impl Field {
         }
     }
 
-    fn required() -> Iter<'static, Field> {
-        static REQUIRED_FIELDS: [Field; 7] = [
-            Field::BirthYear,
-            Field::IssueYear,
-            Field::ExpirationYear,
-            Field::Height,
-            Field::HairColor,
-            Field::EyeColor,
-            Field::PassportID,
-        ];
+    fn required_validations() -> Iter<'static, (Field, ValidationFn)> {
+        lazy_static! {
+            static ref REQUIRED_FIELDS: Vec<(Field, ValidationFn)> = vec![
+                (Field::BirthYear, valid_birth_year),
+                (Field::IssueYear, valid_issue_year),
+                (Field::ExpirationYear, valid_expiration_year),
+                (Field::Height, valid_height),
+                (Field::HairColor, valid_hair_color),
+                (Field::EyeColor, valid_eye_color),
+                (Field::PassportID, valid_passport_id),
+            ];
+        }
         REQUIRED_FIELDS.iter()
     }
 }
 
-fn valid_passport(passport: &Passport) -> bool {
-    Field::required().all(|field| passport.contains_key(field))
+fn valid_passport(passport: &Passport, validate_data: bool) -> bool {
+    Field::required_validations().all(|(field, validate)| match validate_data {
+        true => passport.get(&field).map_or(false, |value| validate(value)),
+        false => passport.contains_key(&field),
+    })
+}
+
+fn valid_year(year: &String, min: u16, max: u16) -> bool {
+    let parsed: u16 = year.parse().expect("Year was not a number");
+    parsed >= min && parsed <= max
+}
+
+fn valid_birth_year(year: &String) -> bool {
+    ///     byr (Birth Year) - four digits; at least 1920 and at most 2002.
+    valid_year(year, 1920, 2002)
+}
+
+fn valid_issue_year(year: &String) -> bool {
+    ///     iyr (Issue Year) - four digits; at least 2010 and at most 2020.
+    valid_year(year, 2010, 2020)
+}
+
+fn valid_expiration_year(year: &String) -> bool {
+    ///     eyr (Expiration Year) - four digits; at least 2020 and at most 2030.
+    valid_year(year, 2020, 2030)
+}
+
+fn valid_height(height: &String) -> bool {
+    ///     hgt (Height) - a number followed by either cm or in:
+    ///         If cm, the number must be at least 150 and at most 193.
+    ///         If in, the number must be at least 59 and at most 76.
+
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^([0-9]+)(in|cm)$").unwrap();
+    }
+    let captures = RE.captures(height.as_str());
+    match captures {
+        Some(groups) => match (groups.get(1), groups.get(2)) {
+            (Some(number_match), Some(unit_match)) => {
+                match (number_match.as_str().parse::<u16>(), unit_match.as_str()) {
+                    (Ok(number), "cm") => number >= 150 && number <= 193,
+                    (Ok(number), "in") => number >= 59 && number <= 76,
+                    _ => false,
+                }
+            }
+            _ => false,
+        },
+
+        _ => false,
+    }
+}
+
+fn valid_hair_color(hair_color: &String) -> bool {
+    ///     hcl (Hair Color) - a # followed by exactly six characters 0-9 or a-f.
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^#[0-9a-f]{6}$").unwrap();
+    }
+    RE.is_match(hair_color.as_str())
+}
+
+fn valid_eye_color(eye_color: &String) -> bool {
+    ///     ecl (Eye Color) - exactly one of: amb blu brn gry grn hzl oth.
+    lazy_static! {
+        static ref POSSIBLE_EYE_COLORS: HashSet<String> =
+            vec!["amb", "blu", "brn", "gry", "grn", "hzl", "oth"]
+                .into_iter()
+                .map(|color| String::from(color))
+                .collect();
+    }
+    POSSIBLE_EYE_COLORS.contains(eye_color)
+}
+
+fn valid_passport_id(passport_id: &String) -> bool {
+    ///     pid (Passport ID) - a nine-digit number, including leading zeroes.
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^[0-9]{9}$").unwrap();
+    }
+    RE.is_match(passport_id.as_str())
 }
 
 fn parse_passports(input: &str) -> Vec<Passport> {
@@ -296,7 +385,7 @@ mod tests {
         passport.insert(Field::CountryID, String::from("147"));
         passport.insert(Field::Height, String::from("183cm"));
 
-        assert!(valid_passport(&passport));
+        assert!(valid_passport(&passport, false));
     }
 
     #[test]
@@ -310,8 +399,23 @@ mod tests {
         passport.insert(Field::BirthYear, String::from("1931"));
         passport.insert(Field::Height, String::from("179cm"));
 
-        assert!(valid_passport(&passport));
+        assert!(valid_passport(&passport, false));
     }
+
+    #[test]
+    fn test_valid_passport_with_data_validation_true() {
+        let mut passport = Passport::new();
+        passport.insert(Field::PassportID, String::from("087499704"));
+        passport.insert(Field::Height, String::from("74in"));
+        passport.insert(Field::EyeColor, String::from("grn"));
+        passport.insert(Field::IssueYear, String::from("2012"));
+        passport.insert(Field::ExpirationYear, String::from("2030"));
+        passport.insert(Field::BirthYear, String::from("1980"));
+        passport.insert(Field::HairColor, String::from("#623a2f"));
+
+        assert!(valid_passport(&passport, true));
+    }
+
     #[test]
     fn test_valid_passport_false() {
         let mut passport = Passport::new();
@@ -323,6 +427,85 @@ mod tests {
         passport.insert(Field::HairColor, String::from("#cfa07d"));
         passport.insert(Field::BirthYear, String::from("1929"));
 
-        assert!(!valid_passport(&passport));
+        assert!(!valid_passport(&passport, false));
+    }
+
+    #[test]
+    fn test_valid_passport_with_data_validation_false() {
+        let mut passport = Passport::new();
+        passport.insert(Field::Height, String::from("59cm"));
+        passport.insert(Field::EyeColor, String::from("zzz"));
+        passport.insert(Field::ExpirationYear, String::from("2038"));
+        passport.insert(Field::HairColor, String::from("74454a"));
+        passport.insert(Field::IssueYear, String::from("2023"));
+        passport.insert(Field::PassportID, String::from("3556412378"));
+        passport.insert(Field::BirthYear, String::from("2007"));
+
+        assert!(!valid_passport(&passport, true));
+    }
+
+    #[test]
+    fn test_valid_birth_year_true() {
+        assert!(valid_birth_year(&String::from("2002")));
+    }
+
+    #[test]
+    fn test_valid_year_false() {
+        assert!(!valid_birth_year(&String::from("2003")));
+    }
+
+    #[test]
+    fn test_valid_height_inches_true() {
+        assert!(valid_height(&String::from("60in")));
+    }
+
+    #[test]
+    fn test_valid_height_centimeters_true() {
+        assert!(valid_height(&String::from("190cm")));
+    }
+
+    #[test]
+    fn test_valid_height_inches_false() {
+        assert!(!valid_height(&String::from("190in")));
+    }
+
+    #[test]
+    fn test_valid_height_false() {
+        assert!(!valid_height(&String::from("190")));
+    }
+
+    #[test]
+    fn test_valid_hair_color_true() {
+        assert!(valid_hair_color(&String::from("#123abc")));
+    }
+
+    #[test]
+    fn test_valid_hair_color_outside_of_hex_false() {
+        assert!(!valid_hair_color(&String::from("#123abz")));
+    }
+
+    #[test]
+    fn test_valid_hair_color_no_hash_false() {
+        assert!(!valid_hair_color(&String::from("123abc")));
+    }
+
+    #[test]
+    fn test_valid_eye_color_true() {
+        assert!(valid_eye_color(&String::from("brn")));
+    }
+
+    #[test]
+    fn test_valid_eye_color_false() {
+        assert!(!valid_eye_color(&String::from("wat")));
+    }
+
+    #[test]
+    fn test_valid_passport_id_true() {
+        assert!(valid_passport_id(&String::from("000000001")));
+    }
+
+    #[test]
+    fn test_valid_passport_id_false() {
+        assert!(!valid_passport_id(&String::from("0123456789")));
     }
 }
