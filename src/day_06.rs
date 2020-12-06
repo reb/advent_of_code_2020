@@ -65,7 +65,7 @@ const INPUT: &str = include_str!("../input/day_06.txt");
 pub fn run() {
     let groups_answers = load_groups_answers(INPUT);
 
-    let sum = groups_answers
+    let anyone_answered_sum = groups_answers
         .iter()
         .map(|group| {
             // union all answer sets of a group
@@ -78,7 +78,22 @@ pub fn run() {
         })
         .map(|any_answers| any_answers.len() as u32)
         .sum::<u32>();
-    println!("Counting the number or questions to which anyone answered \"yes\" to for each group gives: {}", sum);
+    println!("Counting the number or questions to which anyone answered \"yes\" to for each group gives: {}", anyone_answered_sum);
+
+    let all_answered_sum = groups_answers
+        .iter()
+        .map(|group| {
+            // intersect all answer sets of a group
+            let mut iter = group.iter();
+            iter.next().map_or(HashSet::new(), |answers| {
+                iter.fold(answers.clone(), |all_answers, more_answers| {
+                    all_answers.intersection(more_answers).cloned().collect()
+                })
+            })
+        })
+        .map(|any_answers| any_answers.len() as u32)
+        .sum::<u32>();
+    println!("Counting the number or questions to which everyone answered \"yes\" to for each group gives: {}", all_answered_sum);
 }
 
 fn load_groups_answers(input: &str) -> Vec<Vec<HashSet<char>>> {
