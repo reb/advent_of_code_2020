@@ -58,10 +58,79 @@
 ///
 /// For each group, count the number of questions to which anyone answered
 /// "yes". What is the sum of those counts?
+use std::collections::HashSet;
 
 const INPUT: &str = include_str!("../input/day_06.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let groups_answers = load_groups_answers(INPUT);
+
+    let sum = groups_answers
+        .iter()
+        .map(|group| {
+            // union all answer sets of a group
+            let mut iter = group.iter();
+            iter.next().map_or(HashSet::new(), |answers| {
+                iter.fold(answers.clone(), |all_answers, more_answers| {
+                    all_answers.union(more_answers).cloned().collect()
+                })
+            })
+        })
+        .map(|any_answers| any_answers.len() as u32)
+        .sum::<u32>();
+    println!("Counting the number or questions to which anyone answered \"yes\" to for each group gives: {}", sum);
+}
+
+fn load_groups_answers(input: &str) -> Vec<Vec<HashSet<char>>> {
+    input
+        .split("\n\n")
+        .map(|group| {
+            group
+                .lines()
+                .map(|answers| answers.chars().filter(|&c| c >= 'a' && c <= 'z').collect())
+                .collect()
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_load_groups_answers() {
+        let input = "\
+            abc\n\
+            \n\
+            a\n\
+            b\n\
+            c\n\
+            \n\
+            ab\n\
+            ac\n\
+            \n\
+            a\n\
+            a\n\
+            a\n\
+            a\n\
+            \n\
+            b";
+
+        let abc: HashSet<char> = ['a', 'b', 'c'].iter().cloned().collect();
+        let a: HashSet<char> = ['a'].iter().cloned().collect();
+        let b: HashSet<char> = ['b'].iter().cloned().collect();
+        let c: HashSet<char> = ['c'].iter().cloned().collect();
+        let ab: HashSet<char> = ['a', 'b'].iter().cloned().collect();
+        let ac: HashSet<char> = ['a', 'c'].iter().cloned().collect();
+
+        let g1 = vec![abc];
+        let g2 = vec![a.clone(), b.clone(), c.clone()];
+        let g3 = vec![ab, ac];
+        let g4 = vec![a.clone(), a.clone(), a.clone(), a.clone()];
+        let g5 = vec![b.clone()];
+
+        let expected = vec![g1, g2, g3, g4, g5];
+
+        assert_eq!(load_groups_answers(input), expected);
+    }
 }
