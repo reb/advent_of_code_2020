@@ -65,35 +65,34 @@ const INPUT: &str = include_str!("../input/day_06.txt");
 pub fn run() {
     let groups_answers = load_groups_answers(INPUT);
 
-    let anyone_answered_sum = groups_answers
-        .iter()
-        .map(|group| {
-            // union all answer sets of a group
-            let mut iter = group.iter();
-            iter.next().map_or(HashSet::new(), |answers| {
-                iter.fold(answers.clone(), |all_answers, more_answers| {
-                    all_answers.union(more_answers).cloned().collect()
-                })
-            })
-        })
-        .map(|any_answers| any_answers.len() as u32)
-        .sum::<u32>();
+    let anyone_answered_sum = combine_sets(groups_answers.clone(), |set1, set2| {
+        set1.union(set2).cloned().collect()
+    })
+    .map(|any_answers| any_answers.len() as u32)
+    .sum::<u32>();
     println!("Counting the number or questions to which anyone answered \"yes\" to for each group gives: {}", anyone_answered_sum);
 
-    let all_answered_sum = groups_answers
-        .iter()
-        .map(|group| {
-            // intersect all answer sets of a group
-            let mut iter = group.iter();
-            iter.next().map_or(HashSet::new(), |answers| {
-                iter.fold(answers.clone(), |all_answers, more_answers| {
-                    all_answers.intersection(more_answers).cloned().collect()
-                })
+    let all_answered_sum = combine_sets(groups_answers.clone(), |set1, set2| {
+        set1.intersection(set2).cloned().collect()
+    })
+    .map(|any_answers| any_answers.len() as u32)
+    .sum::<u32>();
+    println!("Counting the number or questions to which everyone answered \"yes\" to for each group gives: {}", all_answered_sum);
+}
+
+fn combine_sets(
+    sets: Vec<Vec<HashSet<char>>>,
+    combine_with: impl Fn(HashSet<char>, &HashSet<char>) -> HashSet<char>,
+) -> impl Iterator<Item = HashSet<char>> {
+    sets.into_iter().map(move |group| {
+        // combine all answer sets of a group
+        let mut iter = group.into_iter();
+        iter.next().map_or(HashSet::new(), |answers| {
+            iter.fold(answers, |all_answers, more_answers| {
+                combine_with(all_answers, &more_answers)
             })
         })
-        .map(|any_answers| any_answers.len() as u32)
-        .sum::<u32>();
-    println!("Counting the number or questions to which everyone answered \"yes\" to for each group gives: {}", all_answered_sum);
+    })
 }
 
 fn load_groups_answers(input: &str) -> Vec<Vec<HashSet<char>>> {
