@@ -46,8 +46,45 @@
 ///
 /// How many bag colors can eventually contain at least one shiny gold bag? (The
 /// list of rules is quite long; make sure you get all of it.)
+///
+/// --- Part Two ---
+///
+/// It's getting pretty expensive to fly these days - not because of ticket
+/// prices, but because of the ridiculous number of bags you need to buy!
+///
+/// Consider again your shiny gold bag and the rules from the above example:
+///
+///     faded blue bags contain 0 other bags.
+///     dotted black bags contain 0 other bags.
+///     vibrant plum bags contain 11 other bags: 5 faded blue bags and 6 dotted
+///     black bags.
+///     dark olive bags contain 7 other bags: 3 faded blue bags and 4 dotted
+///     black bags.
+///
+/// So, a single shiny gold bag must contain 1 dark olive bag (and the 7 bags
+/// within it) plus 2 vibrant plum bags (and the 11 bags within each of those):
+/// 1 + 1*7 + 2 + 2*11 = 32 bags!
+///
+/// Of course, the actual rules have a small chance of going several levels
+/// deeper than this example; be sure to count all of the bags, even if the
+/// nesting becomes topologically impractical!
+///
+/// Here's another example:
+///
+/// shiny gold bags contain 2 dark red bags.
+/// dark red bags contain 2 dark orange bags.
+/// dark orange bags contain 2 dark yellow bags.
+/// dark yellow bags contain 2 dark green bags.
+/// dark green bags contain 2 dark blue bags.
+/// dark blue bags contain 2 dark violet bags.
+/// dark violet bags contain no other bags.
+///
+/// In this example, a single shiny gold bag must contain 126 other bags.
+///
+/// How many individual bags are required inside your single shiny gold bag?
 use petgraph::graphmap::DiGraphMap;
 use petgraph::visit::{Bfs, Reversed};
+use petgraph::Direction::Outgoing;
 use regex::Regex;
 
 const INPUT: &str = include_str!("../input/day_07.txt");
@@ -65,9 +102,25 @@ pub fn run() {
         "The amount of bag colors that can contain a shiny gold bag is: {}",
         bags_above
     );
+
+    let containing_bags = count_containing_bags(&rule_graph, "shiny gold");
+    println!(
+        "The amount of individual bags required inside a single shiny gold bag is: {}",
+        containing_bags
+    );
 }
 
 type Graph<'a> = DiGraphMap<&'a str, u32>;
+
+fn count_containing_bags(graph: &Graph, start: &str) -> u32 {
+    graph
+        .neighbors_directed(start, Outgoing)
+        .map(|next| {
+            let weight = *graph.edge_weight(start, next).unwrap();
+            weight * (1 + count_containing_bags(graph, next))
+        })
+        .sum()
+}
 
 fn parse_bag_rules(input: &str) -> Graph {
     let weighted_edges: Vec<(&str, &str, u32)> = input
@@ -134,5 +187,51 @@ mod tests {
                 resulting_graph, expected_graph
             )
         );
+    }
+
+    #[test]
+    fn test_count_containing_bags_simple() {
+        /// shiny gold bags contain 1 dark olive bag, 2 vibrant plum bags.
+        /// dark olive bags contain 3 faded blue bags, 4 dotted black bags.
+        /// vibrant plum bags contain 5 faded blue bags, 6 dotted black bags.
+        /// faded blue bags contain no other bags.
+        /// dotted black bags contain no other bags.
+        ///
+        /// So, a single shiny gold bag must contain 1 dark olive bag (and the 7 bags
+        /// within it) plus 2 vibrant plum bags (and the 11 bags within each of those):
+        /// 1 + 1*7 + 2 + 2*11 = 32 bags!
+        let graph = Graph::from_edges(&[
+            ("shiny gold", "dark olive", 1),
+            ("shiny gold", "vibrant plum", 2),
+            ("dark olive", "faded blue", 3),
+            ("dark olive", "dotted black", 4),
+            ("vibrant plum", "faded blue", 5),
+            ("vibrant plum", "dotted black", 6),
+        ]);
+
+        assert_eq!(count_containing_bags(&graph, "shiny gold"), 32);
+    }
+
+    #[test]
+    fn test_count_containing_bags_deep() {
+        /// shiny gold bags contain 2 dark red bags.
+        /// dark red bags contain 2 dark orange bags.
+        /// dark orange bags contain 2 dark yellow bags.
+        /// dark yellow bags contain 2 dark green bags.
+        /// dark green bags contain 2 dark blue bags.
+        /// dark blue bags contain 2 dark violet bags.
+        /// dark violet bags contain no other bags.
+        ///
+        /// In this example, a single shiny gold bag must contain 126 other bags.
+        let graph = Graph::from_edges(&[
+            ("shiny gold", "dark red", 2),
+            ("dark red", "dark orange", 2),
+            ("dark orange", "dark yellow", 2),
+            ("dark yellow", "dark green", 2),
+            ("dark green", "dark blue", 2),
+            ("dark blue", "dark violet", 2),
+        ]);
+
+        assert_eq!(count_containing_bags(&graph, "shiny gold"), 126);
     }
 }
