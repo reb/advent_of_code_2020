@@ -132,7 +132,37 @@ pub fn run() {
     println!(
         "The value of the accumulator before any instruction is executed again is: {}",
         result_before_loop
-    )
+    );
+
+    // try to fix the program by switching one operation
+    for i in 0..program.len() {
+        let mut instruction = program.get(i).unwrap().clone();
+
+        match instruction {
+            Instruction {
+                operation: Accumulate,
+                ..
+            } => continue,
+            Instruction {
+                operation: NoOperation,
+                ..
+            } => instruction.operation = Jump,
+            Instruction {
+                operation: Jump, ..
+            } => instruction.operation = NoOperation,
+        };
+        let mut possibly_fixed_program = program.to_vec();
+        possibly_fixed_program[i] = instruction;
+
+        let (result, accumulator) = run_program(&possibly_fixed_program);
+
+        if result == Finished {
+            println!(
+                "The value of the accumulator of the fixed program is: {}",
+                accumulator
+            );
+        }
+    }
 }
 
 fn run_program(program: &Vec<Instruction>) -> (ProgramResult, i32) {
@@ -177,14 +207,14 @@ fn run_program(program: &Vec<Instruction>) -> (ProgramResult, i32) {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum Operation {
     NoOperation,
     Accumulate,
     Jump,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct Instruction {
     operation: Operation,
     argument: i32,
