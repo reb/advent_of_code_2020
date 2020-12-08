@@ -46,10 +46,93 @@
 ///
 /// How many bag colors can eventually contain at least one shiny gold bag? (The
 /// list of rules is quite long; make sure you get all of it.)
+use petgraph::graphmap::DiGraphMap;
+use petgraph::visit::{Bfs, Reversed};
+use regex::Regex;
 
 const INPUT: &str = include_str!("../input/day_07.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let rule_graph = parse_bag_rules(INPUT);
+
+    let mut bfs = Bfs::new(Reversed(&rule_graph), "shiny gold");
+    let mut bags_above = 0;
+    while let Some(_) = bfs.next(Reversed(&rule_graph)) {
+        bags_above += 1;
+    }
+    bags_above -= 1; // remove the shiny gold bag
+    println!(
+        "The amount of bag colors that can contain a shiny gold bag is: {}",
+        bags_above
+    );
+}
+
+type Graph<'a> = DiGraphMap<&'a str, u32>;
+
+fn parse_bag_rules(input: &str) -> Graph {
+    let weighted_edges: Vec<(&str, &str, u32)> = input
+        .lines()
+        .flat_map(|line| convert_to_edges(line))
+        .collect();
+    Graph::from_edges(weighted_edges)
+}
+
+fn convert_to_edges(line: &str) -> Vec<(&str, &str, u32)> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"([0-9]*) ?([a-z]+ [a-z]+) bag").unwrap();
+    }
+    let mut captures = RE.captures_iter(line);
+    let color = captures
+        .next()
+        .expect("No first match in line")
+        .get(2)
+        .expect("No first color")
+        .as_str();
+
+    captures
+        .filter_map(|groups| {
+            match (
+                groups.get(1).unwrap().as_str().parse(),
+                groups.get(2).unwrap().as_str(),
+            ) {
+                (Ok(amount), connecting_color) => Some((color, connecting_color, amount)),
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn graph_eq(a: &Graph, b: &Graph) -> bool {
+        a.nodes().eq(b.nodes()) && a.all_edges().eq(b.all_edges())
+    }
+
+    #[test]
+    fn test_parse_bag_rules() {
+        let input = "\
+            light red bags contain 1 bright white bag, 2 muted yellow bags.\n\
+            dark orange bags contain 3 bright white bags, 4 muted yellow bags.\n\
+            bright white bags contain 1 shiny gold bag.\n\
+            dotted black bags contain no other bags.";
+
+        let expected_graph = Graph::from_edges(&[
+            ("light red", "bright white", 1),
+            ("light red", "muted yellow", 2),
+            ("dark orange", "bright white", 3),
+            ("dark orange", "muted yellow", 4),
+            ("bright white", "shiny gold", 1),
+        ]);
+
+        let resulting_graph = parse_bag_rules(input);
+        assert!(
+            graph_eq(&resulting_graph, &expected_graph),
+            format!(
+                "Graphs are not equal\n\nresult: {:?}\n\nexpected: {:?}\n",
+                resulting_graph, expected_graph
+            )
+        );
+    }
 }
