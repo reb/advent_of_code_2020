@@ -70,10 +70,64 @@
 /// first number in the list (after the preamble) which is not the sum of two of
 /// the 25 numbers before it. What is the first number that does not have this
 /// property?
+use itertools::Itertools;
 
 const INPUT: &str = include_str!("../input/day_09.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let xmas_data = parse_xmas_data(INPUT);
+
+    let invalid_number = find_invalid_number(&xmas_data, 25).expect("No invalid number found");
+    println!(
+        "The first number to not be a sum of a pair of the previous 25 number is: {}",
+        invalid_number
+    );
+}
+
+fn find_invalid_number(xmas_data: &Vec<u64>, preamble_size: usize) -> Option<u64> {
+    for index in preamble_size..xmas_data.len() {
+        let number = xmas_data.get(index).unwrap();
+        if !xmas_data[index - preamble_size..index]
+            .iter()
+            .combinations(2)
+            .any(|vec| *number == vec.into_iter().sum())
+        {
+            return Some(*number);
+        }
+    }
+    None
+}
+
+fn parse_xmas_data(input: &str) -> Vec<u64> {
+    input
+        .lines()
+        .map(str::parse)
+        .filter_map(Result::ok)
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_xmas_data() {
+        let input = "35\n20\n15\n25\n47\n40\n62\n55\n65\n95\n102\n117\n150\n182\n127\n219\n299\n277\n309\n576";
+        let expected_data = vec![
+            35, 20, 15, 25, 47, 40, 62, 55, 65, 95, 102, 117, 150, 182, 127, 219, 299, 277, 309,
+            576,
+        ];
+
+        assert_eq!(parse_xmas_data(input), expected_data);
+    }
+
+    #[test]
+    fn test_find_invalid_number() {
+        let data = vec![
+            35, 20, 15, 25, 47, 40, 62, 55, 65, 95, 102, 117, 150, 182, 127, 219, 299, 277, 309,
+            576,
+        ];
+
+        assert_eq!(find_invalid_number(&data, 5), Some(127));
+    }
 }
