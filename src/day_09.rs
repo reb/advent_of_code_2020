@@ -70,6 +70,45 @@
 /// first number in the list (after the preamble) which is not the sum of two of
 /// the 25 numbers before it. What is the first number that does not have this
 /// property?
+///
+/// --- Part Two ---
+///
+/// The final step in breaking the XMAS encryption relies on the invalid number
+/// you just found: you must find a contiguous set of at least two numbers in
+/// your list which sum to the invalid number from step 1.
+///
+/// Again consider the above example:
+///
+/// 35
+/// 20
+/// 15
+/// 25
+/// 47
+/// 40
+/// 62
+/// 55
+/// 65
+/// 95
+/// 102
+/// 117
+/// 150
+/// 182
+/// 127
+/// 219
+/// 299
+/// 277
+/// 309
+/// 576
+///
+/// In this list, adding up all of the numbers from 15 through 40 produces the
+/// invalid number from step 1, 127. (Of course, the contiguous set of numbers
+/// in your actual list might be much longer.)
+///
+/// To find the encryption weakness, add together the smallest and largest
+/// number in this contiguous range; in this example, these are 15 and 47,
+/// producing 62.
+///
+/// What is the encryption weakness in your XMAS-encrypted list of numbers?
 use itertools::Itertools;
 
 const INPUT: &str = include_str!("../input/day_09.txt");
@@ -82,6 +121,13 @@ pub fn run() {
         "The first number to not be a sum of a pair of the previous 25 number is: {}",
         invalid_number
     );
+
+    let encryption_weakness =
+        find_encryption_weakness(&xmas_data, invalid_number).expect("No encryption weakness found");
+    println!(
+        "The encryption weakness of the XMAS-encrypted data is: {}",
+        encryption_weakness
+    )
 }
 
 fn find_invalid_number(xmas_data: &Vec<u64>, preamble_size: usize) -> Option<u64> {
@@ -93,6 +139,26 @@ fn find_invalid_number(xmas_data: &Vec<u64>, preamble_size: usize) -> Option<u64
             .any(|vec| *number == vec.into_iter().sum())
         {
             return Some(*number);
+        }
+    }
+    None
+}
+
+fn find_encryption_weakness(xmas_data: &Vec<u64>, invalid_number: u64) -> Option<u64> {
+    for from in 0..xmas_data.len() {
+        // make sure the sequence is at least 2 long by starting at the from
+        let mut sequence_sum = *xmas_data.get(from).unwrap();
+        for to in from + 1..xmas_data.len() {
+            sequence_sum += *xmas_data.get(to).unwrap();
+            if sequence_sum == invalid_number {
+                let weakness_sequence = &xmas_data[from..=to];
+                return weakness_sequence
+                    .iter()
+                    .max()
+                    .and_then(|max| weakness_sequence.iter().min().map(|min| max + min));
+            } else if sequence_sum > invalid_number {
+                break;
+            }
         }
     }
     None
@@ -129,5 +195,15 @@ mod tests {
         ];
 
         assert_eq!(find_invalid_number(&data, 5), Some(127));
+    }
+
+    #[test]
+    fn test_find_encryption_weakness() {
+        let data = vec![
+            35, 20, 15, 25, 47, 40, 62, 55, 65, 95, 102, 117, 150, 182, 127, 219, 299, 277, 309,
+            576,
+        ];
+
+        assert_eq!(find_encryption_weakness(&data, 127), Some(62));
     }
 }
