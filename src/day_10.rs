@@ -115,6 +115,73 @@
 /// to your device's built-in adapter and count the joltage differences between
 /// the charging outlet, the adapters, and your device. What is the number of
 /// 1-jolt differences multiplied by the number of 3-jolt differences?
+///
+/// --- Part Two ---
+///
+/// To completely determine whether you have enough adapters, you'll need to
+/// figure out how many different ways they can be arranged. Every arrangement
+/// needs to connect the charging outlet to your device. The previous rules
+/// about when adapters can successfully connect still apply.
+///
+/// The first example above (the one that starts with 16, 10, 15) supports the
+/// following arrangements:
+///
+/// (0), 1, 4, 5, 6, 7, 10, 11, 12, 15, 16, 19, (22)
+/// (0), 1, 4, 5, 6, 7, 10, 12, 15, 16, 19, (22)
+/// (0), 1, 4, 5, 7, 10, 11, 12, 15, 16, 19, (22)
+/// (0), 1, 4, 5, 7, 10, 12, 15, 16, 19, (22)
+/// (0), 1, 4, 6, 7, 10, 11, 12, 15, 16, 19, (22)
+/// (0), 1, 4, 6, 7, 10, 12, 15, 16, 19, (22)
+/// (0), 1, 4, 7, 10, 11, 12, 15, 16, 19, (22)
+/// (0), 1, 4, 7, 10, 12, 15, 16, 19, (22)
+///
+/// (The charging outlet and your device's built-in adapter are shown in
+/// parentheses.) Given the adapters from the first example, the total number of
+/// arrangements that connect the charging outlet to your device is 8.
+///
+/// The second example above (the one that starts with 28, 33, 18) has many
+/// arrangements. Here are a few:
+///
+/// (0), 1, 2, 3, 4, 7, 8, 9, 10, 11, 14, 17, 18, 19, 20, 23, 24, 25, 28, 31,
+/// 32, 33, 34, 35, 38, 39, 42, 45, 46, 47, 48, 49, (52)
+///
+/// (0), 1, 2, 3, 4, 7, 8, 9, 10, 11, 14, 17, 18, 19, 20, 23, 24, 25, 28, 31,
+/// 32, 33, 34, 35, 38, 39, 42, 45, 46, 47, 49, (52)
+///
+/// (0), 1, 2, 3, 4, 7, 8, 9, 10, 11, 14, 17, 18, 19, 20, 23, 24, 25, 28, 31,
+/// 32, 33, 34, 35, 38, 39, 42, 45, 46, 48, 49, (52)
+///
+/// (0), 1, 2, 3, 4, 7, 8, 9, 10, 11, 14, 17, 18, 19, 20, 23, 24, 25, 28, 31,
+/// 32, 33, 34, 35, 38, 39, 42, 45, 46, 49, (52)
+///
+/// (0), 1, 2, 3, 4, 7, 8, 9, 10, 11, 14, 17, 18, 19, 20, 23, 24, 25, 28, 31,
+/// 32, 33, 34, 35, 38, 39, 42, 45, 47, 48, 49, (52)
+///
+/// (0), 3, 4, 7, 10, 11, 14, 17, 20, 23, 25, 28, 31, 34, 35, 38, 39, 42, 45,
+/// 46, 48, 49, (52)
+///
+/// (0), 3, 4, 7, 10, 11, 14, 17, 20, 23, 25, 28, 31, 34, 35, 38, 39, 42, 45,
+/// 46, 49, (52)
+///
+/// (0), 3, 4, 7, 10, 11, 14, 17, 20, 23, 25, 28, 31, 34, 35, 38, 39, 42, 45,
+/// 47, 48, 49, (52)
+///
+/// (0), 3, 4, 7, 10, 11, 14, 17, 20, 23, 25, 28, 31, 34, 35, 38, 39, 42, 45,
+/// 47, 49, (52)
+///
+/// (0), 3, 4, 7, 10, 11, 14, 17, 20, 23, 25, 28, 31, 34, 35, 38, 39, 42, 45,
+/// 48, 49, (52)
+///
+/// In total, this set of adapters can connect the charging outlet to your
+/// device in 19208 distinct arrangements.
+///
+/// You glance back down at your bag and try to remember why you brought so many
+/// adapters; there must be more than a trillion valid ways to arrange them!
+/// Surely, there must be an efficient way to count the arrangements.
+///
+/// What is the total number of distinct ways you can arrange the adapters to
+/// connect the charging outlet to your device?
+use itertools::Itertools;
 use std::collections::HashMap;
 
 const INPUT: &str = include_str!("../input/day_10.txt");
@@ -127,6 +194,11 @@ pub fn run() {
     println!(
         "The number of 1-jolt differences multiplied by the number of 3-jolt differences is: {}",
         difference_counts.get(&1).unwrap() * difference_counts.get(&3).unwrap()
+    );
+
+    println!(
+        "The total number of distinct ways adapters can be arranged to connect is: {}",
+        count_distinct_connections(&differences)
     );
 }
 
@@ -151,6 +223,41 @@ fn count_differences(differences: &[u32]) -> HashMap<u32, usize> {
             *map.entry(difference).or_insert(0) += 1;
             map
         })
+}
+
+fn count_distinct_connections(differences: &[u32]) -> u64 {
+    differences
+        .iter()
+        .group_by(|diff| *diff)
+        .into_iter()
+        .map(|(k, group)| match k {
+            1 => get_possible_connections(group.into_iter().count()),
+            3 => 1, // groups of 3 will always just be one connection
+            _ => panic!("Got an unexpected difference"),
+        })
+        .product()
+}
+
+fn get_possible_connections(n: usize) -> u64 {
+    // The amount of possibilities inside a group with only a difference of 1 is a
+    // tribonacci series.
+    // in a series that has no difference ( .. 4 .. ) there is only 1 options to reach 4
+    // in a series of 1 difference ( .. 4 -> 5 .. ) the end can be reached from 4, which has 1
+    // option to be reached for a total of 1
+    // in a series of 2 differences ( .. 4 -> 5 -> 6 .. ) the end can be reached from 4 or 5 which
+    // both have one option to be reached themselves, for a total of 2
+    // in a series of n length ( .. 0 -> ... -> n .. ) the end can be reached from position
+    // n-1, n-2 and n-3. Summing those values will get the amount of possible connections.
+    match n {
+        0 => 1,
+        1 => 1,
+        2 => 2,
+        _ => {
+            get_possible_connections(n - 3)
+                + get_possible_connections(n - 2)
+                + get_possible_connections(n - 1)
+        }
+    }
 }
 
 fn parse_jolt_adapters(input: &str) -> Vec<u32> {
@@ -198,5 +305,24 @@ mod tests {
 
         let differences = get_differences(adapters);
         assert_eq!(count_differences(&differences), expected_counts);
+    }
+
+    #[test]
+    fn test_count_distinct_connections_small() {
+        let adapters = vec![1, 4, 5, 6, 7, 10, 11, 12, 15, 16, 19];
+        let differences = get_differences(adapters);
+
+        assert_eq!(count_distinct_connections(&differences), 8);
+    }
+
+    #[test]
+    fn test_count_distinct_connections_big() {
+        let adapters = vec![
+            28, 33, 18, 42, 31, 14, 46, 20, 48, 47, 24, 23, 49, 45, 19, 38, 39, 11, 1, 32, 25, 35,
+            8, 17, 7, 9, 4, 2, 34, 10, 3,
+        ];
+        let differences = get_differences(adapters);
+
+        assert_eq!(count_distinct_connections(&differences), 19208);
     }
 }
