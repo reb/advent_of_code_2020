@@ -115,10 +115,88 @@
 /// to your device's built-in adapter and count the joltage differences between
 /// the charging outlet, the adapters, and your device. What is the number of
 /// 1-jolt differences multiplied by the number of 3-jolt differences?
+use std::collections::HashMap;
 
 const INPUT: &str = include_str!("../input/day_10.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let adapters = parse_jolt_adapters(INPUT);
+
+    let differences = get_differences(adapters);
+    let difference_counts = count_differences(&differences);
+    println!(
+        "The number of 1-jolt differences multiplied by the number of 3-jolt differences is: {}",
+        difference_counts.get(&1).unwrap() * difference_counts.get(&3).unwrap()
+    );
+}
+
+fn get_differences(mut adapters: Vec<u32>) -> Vec<u32> {
+    adapters.sort();
+    // start with the charging outlet
+    let mut differences: Vec<_> = [0]
+        .iter()
+        .chain(adapters.iter())
+        .zip(adapters.iter())
+        .map(|(a1, a2)| a2 - a1)
+        .collect();
+    // and add the device's built-in adapter
+    differences.push(3);
+    differences
+}
+
+fn count_differences(differences: &[u32]) -> HashMap<u32, usize> {
+    differences
+        .iter()
+        .fold(HashMap::new(), |mut map, &difference| {
+            *map.entry(difference).or_insert(0) += 1;
+            map
+        })
+}
+
+fn parse_jolt_adapters(input: &str) -> Vec<u32> {
+    input
+        .lines()
+        .map(str::parse)
+        .filter_map(Result::ok)
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_jolt_adapters() {
+        let input = "16\n10\n15\n5\n1\n11\n7\n19\n6\n12\n4";
+        let expected_adapters = vec![16, 10, 15, 5, 1, 11, 7, 19, 6, 12, 4];
+
+        assert_eq!(parse_jolt_adapters(input), expected_adapters);
+    }
+
+    #[test]
+    fn test_differences_small() {
+        let adapters = vec![16, 10, 15, 5, 1, 11, 7, 19, 6, 12, 4];
+
+        let mut expected_counts = HashMap::new();
+        expected_counts.insert(1, 7);
+        expected_counts.insert(3, 5);
+
+        let differences = get_differences(adapters);
+        assert_eq!(count_differences(&differences), expected_counts);
+    }
+
+    #[test]
+    fn test_differences_big() {
+        let adapters = vec![
+            28, 33, 18, 42, 31, 14, 46, 20, 48, 47, 24, 23, 49, 45, 19, 38, 39, 11, 1, 32, 25, 35,
+            8, 17, 7, 9, 4, 2, 34, 10, 3,
+        ];
+
+        let mut expected_counts = HashMap::new();
+        expected_counts.insert(1, 22);
+        expected_counts.insert(3, 10);
+
+        let differences = get_differences(adapters);
+        assert_eq!(count_differences(&differences), expected_counts);
+    }
 }
