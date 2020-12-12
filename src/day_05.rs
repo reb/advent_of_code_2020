@@ -89,7 +89,7 @@ pub fn run() {
 }
 
 fn find_gap(list: &Vec<u16>) -> Option<u16> {
-    /// Find gaps in sorted lists
+    // Find gaps in sorted lists
     list.iter()
         .zip(list.iter().skip(1))
         .find(|(&n1, &n2)| (n1 + 2) == n2) // determine the next number is 2 away
@@ -115,7 +115,7 @@ mod tests {
 
     #[test]
     fn test_convert_to_seat_id_1() {
-        ///     BFFFBBFRRR: row 70, column 7, seat ID 567.
+        // BFFFBBFRRR: row 70, column 7, seat ID 567.
         let boarding_pass = "BFFFBBFRRR";
         let seat_id = 567;
 
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_convert_to_seat_id_2() {
-        ///     FFFBBBFRRR: row 14, column 7, seat ID 119.
+        // FFFBBBFRRR: row 14, column 7, seat ID 119.
         let boarding_pass = "FFFBBBFRRR";
         let seat_id = 119;
 
@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn test_convert_to_seat_id_3() {
-        ///     BBFFBBFRLL: row 102, column 4, seat ID 820.
+        // BBFFBBFRLL: row 102, column 4, seat ID 820.
         let boarding_pass = "BBFFBBFRLL";
         let seat_id = 820;
 

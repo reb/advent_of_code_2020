@@ -183,14 +183,14 @@ enum Field {
 
 impl Field {
     fn from_code(code: &str) -> Field {
-        ///     byr (Birth Year)
-        ///     iyr (Issue Year)
-        ///     eyr (Expiration Year)
-        ///     hgt (Height)
-        ///     hcl (Hair Color)
-        ///     ecl (Eye Color)
-        ///     pid (Passport ID)
-        ///     cid (Country ID)
+        // byr (Birth Year)
+        // iyr (Issue Year)
+        // eyr (Expiration Year)
+        // hgt (Height)
+        // hcl (Hair Color)
+        // ecl (Eye Color)
+        // pid (Passport ID)
+        // cid (Country ID)
         match code {
             "byr" => Field::BirthYear,
             "iyr" => Field::IssueYear,
@@ -233,24 +233,24 @@ fn valid_year(year: &str, min: u16, max: u16) -> bool {
 }
 
 fn valid_birth_year(year: &str) -> bool {
-    ///     byr (Birth Year) - four digits; at least 1920 and at most 2002.
+    // byr (Birth Year) - four digits; at least 1920 and at most 2002.
     valid_year(year, 1920, 2002)
 }
 
 fn valid_issue_year(year: &str) -> bool {
-    ///     iyr (Issue Year) - four digits; at least 2010 and at most 2020.
+    // iyr (Issue Year) - four digits; at least 2010 and at most 2020.
     valid_year(year, 2010, 2020)
 }
 
 fn valid_expiration_year(year: &str) -> bool {
-    ///     eyr (Expiration Year) - four digits; at least 2020 and at most 2030.
+    // eyr (Expiration Year) - four digits; at least 2020 and at most 2030.
     valid_year(year, 2020, 2030)
 }
 
 fn valid_height(height: &str) -> bool {
-    ///     hgt (Height) - a number followed by either cm or in:
-    ///         If cm, the number must be at least 150 and at most 193.
-    ///         If in, the number must be at least 59 and at most 76.
+    // hgt (Height) - a number followed by either cm or in:
+    // If cm, the number must be at least 150 and at most 193.
+    // If in, the number must be at least 59 and at most 76.
 
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^([0-9]+)(in|cm)$").unwrap();
@@ -273,7 +273,7 @@ fn valid_height(height: &str) -> bool {
 }
 
 fn valid_hair_color(hair_color: &str) -> bool {
-    ///     hcl (Hair Color) - a # followed by exactly six characters 0-9 or a-f.
+    // hcl (Hair Color) - a # followed by exactly six characters 0-9 or a-f.
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^#[0-9a-f]{6}$").unwrap();
     }
@@ -281,7 +281,7 @@ fn valid_hair_color(hair_color: &str) -> bool {
 }
 
 fn valid_eye_color(eye_color: &str) -> bool {
-    ///     ecl (Eye Color) - exactly one of: amb blu brn gry grn hzl oth.
+    // ecl (Eye Color) - exactly one of: amb blu brn gry grn hzl oth.
     lazy_static! {
         static ref POSSIBLE_EYE_COLORS: HashSet<&'static str> =
             vec!["amb", "blu", "brn", "gry", "grn", "hzl", "oth"]
@@ -292,7 +292,7 @@ fn valid_eye_color(eye_color: &str) -> bool {
 }
 
 fn valid_passport_id(passport_id: &str) -> bool {
-    ///     pid (Passport ID) - a nine-digit number, including leading zeroes.
+    // pid (Passport ID) - a nine-digit number, including leading zeroes.
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^[0-9]{9}$").unwrap();
     }

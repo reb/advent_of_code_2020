@@ -115,7 +115,7 @@ pub fn run() {
 }
 
 fn traverse(map: &Map, right: i32, down: i32) -> i32 {
-    /// traverse the map, reporting on how many trees were hit along the slope
+    // traverse the map, reporting on how many trees were hit along the slope
     // start at 0, 0
     let mut location = Point { x: 0, y: 0 };
 

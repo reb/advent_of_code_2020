@@ -109,7 +109,7 @@
 /// Simulate your seating area by applying the seating rules repeatedly until no
 /// seats change state. How many seats end up occupied?
 
-const INPUT: &str = include_str!("../input/day_xx.txt");
+const INPUT: &str = include_str!("../input/day_11.txt");
 
 pub fn run() {
     println!("Not implemented yet");
