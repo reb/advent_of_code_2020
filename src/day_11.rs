@@ -249,18 +249,24 @@ pub fn run() {
 
     // run rounds until a stable solution forms
     while seating.next_round() {
-        seating.print();
+        // seating.print();
     }
 
     // count the number of occupied seats
-    let occupied_seats = seating
-        .seats
-        .values()
-        .filter(|seat| seat == &&Seat::Occupied)
-        .count();
     println!(
         "After no more seats change the amount of seats that are occupied is: {}",
-        occupied_seats
+        seating.seats_occupied()
+    );
+
+    // run rounds with the visible neighbours mode until a stable solution forms
+    seating = Seating::new(seats, NeighbourMode::Visible);
+    while seating.next_round() {
+        seating.print();
+    }
+
+    println!(
+        "With the new mode for neighbours after an equilibrium is reach the amount of seats occupied is: {}",
+        seating.seats_occupied()
     );
 }
 
@@ -340,7 +346,7 @@ impl Seating {
     }
 
     fn direct_neighbours(&self, &(x, y): &Location) -> Vec<Location> {
-        vec![
+        [
             (x - 1, y - 1),
             (x - 1, y),
             (x - 1, y + 1),
@@ -350,10 +356,46 @@ impl Seating {
             (x + 1, y),
             (x + 1, y + 1),
         ]
+        .iter()
+        .filter(|location| self.seats.contains_key(&location))
+        .cloned()
+        .collect()
     }
 
-    fn visible_neighbours(&self, &(x, y): &Location) -> Vec<Location> {
-        unimplemented!();
+    fn visible_neighbours(&self, location: &Location) -> Vec<Location> {
+        [
+            (-1, -1),
+            (-1, 0),
+            (-1, 1),
+            (0, -1),
+            (0, 1),
+            (1, -1),
+            (1, 0),
+            (1, 1),
+        ]
+        .iter()
+        .filter_map(|direction| self.first_seat_in_direction(location, direction))
+        .collect()
+    }
+
+    fn first_seat_in_direction(
+        &self,
+        location: &Location,
+        &(d_x, d_y): &Location,
+    ) -> Option<Location> {
+        let (mut x, mut y) = location;
+        while self.bounds.x.min <= x
+            && x <= self.bounds.x.max
+            && self.bounds.y.min <= y
+            && y <= self.bounds.y.max
+        {
+            x += d_x;
+            y += d_y;
+            if self.seats.contains_key(&(x, y)) {
+                return Some((x, y));
+            }
+        }
+        None
     }
 
     fn get_neighbour_counts(&self) -> HashMap<Location, usize> {
@@ -368,7 +410,6 @@ impl Seating {
                 NeighbourMode::Direct => self.direct_neighbours(location),
                 NeighbourMode::Visible => self.visible_neighbours(location),
             })
-            .filter(|location| self.seats.contains_key(location))
             .fold(HashMap::new(), |mut map, neighbour| {
                 *map.entry(neighbour).or_insert(0) += 1;
                 map
@@ -418,6 +459,13 @@ impl Seating {
         }
         self.seats = new_seats;
         return true;
+    }
+
+    fn seats_occupied(&self) -> usize {
+        self.seats
+            .values()
+            .filter(|seat| seat == &&Seat::Occupied)
+            .count()
     }
 }
 
@@ -713,6 +761,185 @@ mod tests {
             assert!(seating.next_round());
         }
         // 6th round should not
+        assert!(!seating.next_round());
+        // and seating should be the stabilized configuration
+        assert_eq!(seating.seats, stabilized);
+    }
+
+    #[test]
+    fn test_next_round_visible_neighbours() {
+        let mut seats = HashMap::new();
+        // L.LL.LL.LL
+        seats.insert((0, 0), Seat::Empty);
+        seats.insert((0, 2), Seat::Empty);
+        seats.insert((0, 3), Seat::Empty);
+        seats.insert((0, 5), Seat::Empty);
+        seats.insert((0, 6), Seat::Empty);
+        seats.insert((0, 8), Seat::Empty);
+        seats.insert((0, 9), Seat::Empty);
+        // LLLLLLL.LL
+        seats.insert((1, 0), Seat::Empty);
+        seats.insert((1, 1), Seat::Empty);
+        seats.insert((1, 2), Seat::Empty);
+        seats.insert((1, 3), Seat::Empty);
+        seats.insert((1, 4), Seat::Empty);
+        seats.insert((1, 5), Seat::Empty);
+        seats.insert((1, 6), Seat::Empty);
+        seats.insert((1, 8), Seat::Empty);
+        seats.insert((1, 9), Seat::Empty);
+        // L.L.L..L..
+        seats.insert((2, 0), Seat::Empty);
+        seats.insert((2, 2), Seat::Empty);
+        seats.insert((2, 4), Seat::Empty);
+        seats.insert((2, 7), Seat::Empty);
+        // LLLL.LL.LL
+        seats.insert((3, 0), Seat::Empty);
+        seats.insert((3, 1), Seat::Empty);
+        seats.insert((3, 2), Seat::Empty);
+        seats.insert((3, 3), Seat::Empty);
+        seats.insert((3, 5), Seat::Empty);
+        seats.insert((3, 6), Seat::Empty);
+        seats.insert((3, 8), Seat::Empty);
+        seats.insert((3, 9), Seat::Empty);
+        // L.LL.LL.LL
+        seats.insert((4, 0), Seat::Empty);
+        seats.insert((4, 2), Seat::Empty);
+        seats.insert((4, 3), Seat::Empty);
+        seats.insert((4, 5), Seat::Empty);
+        seats.insert((4, 6), Seat::Empty);
+        seats.insert((4, 8), Seat::Empty);
+        seats.insert((4, 9), Seat::Empty);
+        // L.LLLLL.LL
+        seats.insert((5, 0), Seat::Empty);
+        seats.insert((5, 2), Seat::Empty);
+        seats.insert((5, 3), Seat::Empty);
+        seats.insert((5, 4), Seat::Empty);
+        seats.insert((5, 5), Seat::Empty);
+        seats.insert((5, 6), Seat::Empty);
+        seats.insert((5, 8), Seat::Empty);
+        seats.insert((5, 9), Seat::Empty);
+        // ..L.L.....
+        seats.insert((6, 2), Seat::Empty);
+        seats.insert((6, 4), Seat::Empty);
+        // LLLLLLLLLL
+        seats.insert((7, 0), Seat::Empty);
+        seats.insert((7, 1), Seat::Empty);
+        seats.insert((7, 2), Seat::Empty);
+        seats.insert((7, 3), Seat::Empty);
+        seats.insert((7, 4), Seat::Empty);
+        seats.insert((7, 5), Seat::Empty);
+        seats.insert((7, 6), Seat::Empty);
+        seats.insert((7, 7), Seat::Empty);
+        seats.insert((7, 8), Seat::Empty);
+        seats.insert((7, 9), Seat::Empty);
+        // L.LLLLLL.L
+        seats.insert((8, 0), Seat::Empty);
+        seats.insert((8, 2), Seat::Empty);
+        seats.insert((8, 3), Seat::Empty);
+        seats.insert((8, 4), Seat::Empty);
+        seats.insert((8, 5), Seat::Empty);
+        seats.insert((8, 6), Seat::Empty);
+        seats.insert((8, 7), Seat::Empty);
+        seats.insert((8, 9), Seat::Empty);
+        // L.LLLLL.LL
+        seats.insert((9, 0), Seat::Empty);
+        seats.insert((9, 2), Seat::Empty);
+        seats.insert((9, 3), Seat::Empty);
+        seats.insert((9, 4), Seat::Empty);
+        seats.insert((9, 5), Seat::Empty);
+        seats.insert((9, 6), Seat::Empty);
+        seats.insert((9, 8), Seat::Empty);
+        seats.insert((9, 9), Seat::Empty);
+
+        let mut stabilized = HashMap::new();
+        // #.L#.L#.L#
+        stabilized.insert((0, 0), Seat::Occupied);
+        stabilized.insert((0, 2), Seat::Empty);
+        stabilized.insert((0, 3), Seat::Occupied);
+        stabilized.insert((0, 5), Seat::Empty);
+        stabilized.insert((0, 6), Seat::Occupied);
+        stabilized.insert((0, 8), Seat::Empty);
+        stabilized.insert((0, 9), Seat::Occupied);
+        // #LLLLLL.LL
+        stabilized.insert((1, 0), Seat::Occupied);
+        stabilized.insert((1, 1), Seat::Empty);
+        stabilized.insert((1, 2), Seat::Empty);
+        stabilized.insert((1, 3), Seat::Empty);
+        stabilized.insert((1, 4), Seat::Empty);
+        stabilized.insert((1, 5), Seat::Empty);
+        stabilized.insert((1, 6), Seat::Empty);
+        stabilized.insert((1, 8), Seat::Empty);
+        stabilized.insert((1, 9), Seat::Empty);
+        // L.L.L..#..
+        stabilized.insert((2, 0), Seat::Empty);
+        stabilized.insert((2, 2), Seat::Empty);
+        stabilized.insert((2, 4), Seat::Empty);
+        stabilized.insert((2, 7), Seat::Occupied);
+        // ##L#.#L.L#
+        stabilized.insert((3, 0), Seat::Occupied);
+        stabilized.insert((3, 1), Seat::Occupied);
+        stabilized.insert((3, 2), Seat::Empty);
+        stabilized.insert((3, 3), Seat::Occupied);
+        stabilized.insert((3, 5), Seat::Occupied);
+        stabilized.insert((3, 6), Seat::Empty);
+        stabilized.insert((3, 8), Seat::Empty);
+        stabilized.insert((3, 9), Seat::Occupied);
+        // L.L#.LL.L#
+        stabilized.insert((4, 0), Seat::Empty);
+        stabilized.insert((4, 2), Seat::Empty);
+        stabilized.insert((4, 3), Seat::Occupied);
+        stabilized.insert((4, 5), Seat::Empty);
+        stabilized.insert((4, 6), Seat::Empty);
+        stabilized.insert((4, 8), Seat::Empty);
+        stabilized.insert((4, 9), Seat::Occupied);
+        // #.LLLL#.LL
+        stabilized.insert((5, 0), Seat::Occupied);
+        stabilized.insert((5, 2), Seat::Empty);
+        stabilized.insert((5, 3), Seat::Empty);
+        stabilized.insert((5, 4), Seat::Empty);
+        stabilized.insert((5, 5), Seat::Empty);
+        stabilized.insert((5, 6), Seat::Occupied);
+        stabilized.insert((5, 8), Seat::Empty);
+        stabilized.insert((5, 9), Seat::Empty);
+        // ..#.L.....
+        stabilized.insert((6, 2), Seat::Occupied);
+        stabilized.insert((6, 4), Seat::Empty);
+        // LLL###LLL#
+        stabilized.insert((7, 0), Seat::Empty);
+        stabilized.insert((7, 1), Seat::Empty);
+        stabilized.insert((7, 2), Seat::Empty);
+        stabilized.insert((7, 3), Seat::Occupied);
+        stabilized.insert((7, 4), Seat::Occupied);
+        stabilized.insert((7, 5), Seat::Occupied);
+        stabilized.insert((7, 6), Seat::Empty);
+        stabilized.insert((7, 7), Seat::Empty);
+        stabilized.insert((7, 8), Seat::Empty);
+        stabilized.insert((7, 9), Seat::Occupied);
+        // #.LLLLL#.L
+        stabilized.insert((8, 0), Seat::Occupied);
+        stabilized.insert((8, 2), Seat::Empty);
+        stabilized.insert((8, 3), Seat::Empty);
+        stabilized.insert((8, 4), Seat::Empty);
+        stabilized.insert((8, 5), Seat::Empty);
+        stabilized.insert((8, 6), Seat::Empty);
+        stabilized.insert((8, 7), Seat::Occupied);
+        stabilized.insert((8, 9), Seat::Empty);
+        // #.L#LL#.L#
+        stabilized.insert((9, 0), Seat::Occupied);
+        stabilized.insert((9, 2), Seat::Empty);
+        stabilized.insert((9, 3), Seat::Occupied);
+        stabilized.insert((9, 4), Seat::Empty);
+        stabilized.insert((9, 5), Seat::Empty);
+        stabilized.insert((9, 6), Seat::Occupied);
+        stabilized.insert((9, 8), Seat::Empty);
+        stabilized.insert((9, 9), Seat::Occupied);
+
+        let mut seating = Seating::new(seats, NeighbourMode::Visible);
+        for _ in 0..6 {
+            // first 6 rounds should change the seating
+            assert!(seating.next_round());
+        }
+        // 7th round should not
         assert!(!seating.next_round());
         // and seating should be the stabilized configuration
         assert_eq!(seating.seats, stabilized);
