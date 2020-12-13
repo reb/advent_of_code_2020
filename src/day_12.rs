@@ -162,13 +162,17 @@ impl Ship {
     }
 
     fn move_in_direction(&mut self, direction: Direction, value: i32) {
-        let (x, y) = self.location;
+        self.location = Ship::move_location(self.location, direction, value);
+    }
+
+    fn move_location(location: Location, direction: Direction, value: i32) -> Location {
+        let (x, y) = location;
         match direction {
-            Direction::North => self.location = (x - value, y),
-            Direction::South => self.location = (x + value, y),
-            Direction::East => self.location = (x, y + value),
-            Direction::West => self.location = (x, y - value),
-        };
+            Direction::North => (x - value, y),
+            Direction::South => (x + value, y),
+            Direction::East => (x, y + value),
+            Direction::West => (x, y - value),
+        }
     }
 
     fn turn(&mut self, action: &Action, value: i32) {
