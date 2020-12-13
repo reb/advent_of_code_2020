@@ -2,6 +2,9 @@ extern crate itertools;
 extern crate regex;
 #[macro_use]
 extern crate lazy_static;
+extern crate num;
+extern crate num_derive;
+extern crate num_traits;
 extern crate petgraph;
 
 use std::collections::HashMap;

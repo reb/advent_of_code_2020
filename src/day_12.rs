@@ -51,10 +51,210 @@
 ///
 /// Figure out where the navigation instructions lead. What is the Manhattan
 /// distance between that location and the ship's starting position?
+use num;
+use num_derive::{FromPrimitive, ToPrimitive};
+use regex::Regex;
 
 const INPUT: &str = include_str!("../input/day_12.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let instructions = parse_instructions(INPUT);
+
+    // navigate the ship according to the instructions
+    let mut ship = Ship::new();
+    ship.execute_multiple(&instructions);
+
+    println!(
+        "The Manhattan distance between the ship and the starting position is: {}",
+        ship.location.0 + ship.location.1
+    );
+}
+
+#[derive(Debug, PartialEq)]
+struct Ship {
+    facing: Direction,
+    location: Location,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, FromPrimitive, ToPrimitive)]
+enum Direction {
+    North,
+    East,
+    South,
+    West,
+}
+
+type Location = (i32, i32);
+
+impl Ship {
+    fn new() -> Ship {
+        Ship {
+            facing: Direction::East,
+            location: (0, 0),
+        }
+    }
+
+    fn execute(&mut self, instruction: &Instruction) {
+        match instruction.action {
+            Action::Left | Action::Right => self.turn(&instruction.action, instruction.value),
+            Action::Forward => self.move_in_direction(self.facing, instruction.value),
+            Action::North | Action::South | Action::East | Action::West => {
+                self.move_in_direction(Ship::to_direction(&instruction.action), instruction.value)
+            }
+        };
+    }
+
+    fn to_direction(action: &Action) -> Direction {
+        match action {
+            Action::North => Direction::North,
+            Action::South => Direction::South,
+            Action::East => Direction::East,
+            Action::West => Direction::West,
+            _ => panic!("Action does not translate to a direction"),
+        }
+    }
+
+    fn move_in_direction(&mut self, direction: Direction, value: i32) {
+        let (x, y) = self.location;
+        match direction {
+            Direction::North => self.location = (x - value, y),
+            Direction::South => self.location = (x + value, y),
+            Direction::East => self.location = (x, y + value),
+            Direction::West => self.location = (x, y - value),
+        };
+    }
+
+    fn turn(&mut self, action: &Action, value: i32) {
+        let old_facing = self.facing as i32;
+        let turns = value / 90;
+        self.facing = num::FromPrimitive::from_i32(
+            match action {
+                Action::Left => old_facing - turns,
+                Action::Right => old_facing + turns,
+                _ => panic!("Action is not a turn"),
+            }
+            .rem_euclid(4),
+        )
+        .unwrap();
+    }
+
+    fn execute_multiple(&mut self, instructions: &[Instruction]) {
+        for instruction in instructions.iter() {
+            self.execute(instruction);
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct Instruction {
+    action: Action,
+    value: i32,
+}
+
+#[derive(Debug, PartialEq)]
+enum Action {
+    North,
+    South,
+    East,
+    West,
+    Left,
+    Right,
+    Forward,
+}
+
+fn parse_instructions(input: &str) -> Vec<Instruction> {
+    input.lines().filter_map(convert_to_instruction).collect()
+}
+
+fn convert_to_instruction(line: &str) -> Option<Instruction> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"([NSEWLRF])([0-9]+)").unwrap();
+    }
+    let groups = RE.captures(line).expect("No match found on line");
+    let action = match groups.get(1).map(|a| a.as_str()) {
+        Some("N") => Action::North,
+        Some("S") => Action::South,
+        Some("E") => Action::East,
+        Some("W") => Action::West,
+        Some("L") => Action::Left,
+        Some("R") => Action::Right,
+        Some("F") => Action::Forward,
+        _ => return None,
+    };
+    let value = match groups.get(2).map(|m| m.as_str().parse()) {
+        Some(Ok(value)) => value,
+        _ => return None,
+    };
+
+    Some(Instruction { action, value })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_instructions() {
+        let input = "F10\nN3\nF7\nR90\nF11";
+
+        let expected_instructions = vec![
+            Instruction {
+                action: Action::Forward,
+                value: 10,
+            },
+            Instruction {
+                action: Action::North,
+                value: 3,
+            },
+            Instruction {
+                action: Action::Forward,
+                value: 7,
+            },
+            Instruction {
+                action: Action::Right,
+                value: 90,
+            },
+            Instruction {
+                action: Action::Forward,
+                value: 11,
+            },
+        ];
+
+        assert_eq!(parse_instructions(input), expected_instructions);
+    }
+
+    #[test]
+    fn test_ship_execute() {
+        let instructions = vec![
+            Instruction {
+                action: Action::Forward,
+                value: 10,
+            },
+            Instruction {
+                action: Action::North,
+                value: 3,
+            },
+            Instruction {
+                action: Action::Forward,
+                value: 7,
+            },
+            Instruction {
+                action: Action::Right,
+                value: 90,
+            },
+            Instruction {
+                action: Action::Forward,
+                value: 11,
+            },
+        ];
+
+        let expected_ship = Ship {
+            facing: Direction::South,
+            location: (8, 17),
+        };
+
+        let mut ship = Ship::new();
+        ship.execute_multiple(&instructions);
+        assert_eq!(ship, expected_ship);
+    }
 }
