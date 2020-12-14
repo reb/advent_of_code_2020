@@ -109,11 +109,20 @@ pub fn run() {
 
     // navigate the ship according to the instructions
     let mut ship = Ship::new();
-    ship.execute_multiple(&instructions);
+    ship.navigate_multiple(&instructions);
 
     println!(
-        "The Manhattan distance between the ship and the starting position is: {}",
-        ship.location.0 + ship.location.1
+        "The Manhattan distance between the ship's destination and the starting position is: {}",
+        ship.location.0.abs() + ship.location.1.abs()
+    );
+
+    // create a new ship to navigate it by waypoint
+    ship = Ship::new();
+    ship.navigate_by_waypoint_multiple(&instructions);
+
+    println!(
+        "The Manhattan distance between the ship's actual destination and the starting position is: {}",
+        ship.location.0.abs() + ship.location.1.abs()
     );
 }
 
@@ -121,6 +130,7 @@ pub fn run() {
 struct Ship {
     facing: Direction,
     location: Location,
+    waypoint: Location,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, FromPrimitive, ToPrimitive)]
@@ -138,10 +148,11 @@ impl Ship {
         Ship {
             facing: Direction::East,
             location: (0, 0),
+            waypoint: (-1, 10),
         }
     }
 
-    fn execute(&mut self, instruction: &Instruction) {
+    fn navigate(&mut self, instruction: &Instruction) {
         match instruction.action {
             Action::Left | Action::Right => self.turn(&instruction.action, instruction.value),
             Action::Forward => self.move_in_direction(self.facing, instruction.value),
@@ -149,6 +160,20 @@ impl Ship {
                 self.move_in_direction(Ship::to_direction(&instruction.action), instruction.value)
             }
         };
+    }
+
+    fn navigate_by_waypoint(&mut self, instruction: &Instruction) {
+        match instruction.action {
+            Action::Left | Action::Right => {
+                self.rotate_waypoint(&instruction.action, instruction.value)
+            }
+            Action::Forward => self.move_by_waypoint(instruction.value),
+            Action::North | Action::South | Action::East | Action::West => self
+                .move_waypoint_in_direction(
+                    Ship::to_direction(&instruction.action),
+                    instruction.value,
+                ),
+        }
     }
 
     fn to_direction(action: &Action) -> Direction {
@@ -161,23 +186,27 @@ impl Ship {
         }
     }
 
-    fn move_in_direction(&mut self, direction: Direction, value: i32) {
-        self.location = Ship::move_location(self.location, direction, value);
+    fn move_in_direction(&mut self, direction: Direction, steps: i32) {
+        self.location = Ship::move_location(self.location, direction, steps);
     }
 
-    fn move_location(location: Location, direction: Direction, value: i32) -> Location {
+    fn move_waypoint_in_direction(&mut self, direction: Direction, steps: i32) {
+        self.waypoint = Ship::move_location(self.waypoint, direction, steps);
+    }
+
+    fn move_location(location: Location, direction: Direction, steps: i32) -> Location {
         let (x, y) = location;
         match direction {
-            Direction::North => (x - value, y),
-            Direction::South => (x + value, y),
-            Direction::East => (x, y + value),
-            Direction::West => (x, y - value),
+            Direction::North => (x - steps, y),
+            Direction::South => (x + steps, y),
+            Direction::East => (x, y + steps),
+            Direction::West => (x, y - steps),
         }
     }
 
-    fn turn(&mut self, action: &Action, value: i32) {
+    fn turn(&mut self, action: &Action, degrees: i32) {
         let old_facing = self.facing as i32;
-        let turns = value / 90;
+        let turns = degrees / 90;
         self.facing = num::FromPrimitive::from_i32(
             match action {
                 Action::Left => old_facing - turns,
@@ -189,9 +218,36 @@ impl Ship {
         .unwrap();
     }
 
-    fn execute_multiple(&mut self, instructions: &[Instruction]) {
+    fn rotate_waypoint(&mut self, action: &Action, mut degrees: i32) {
+        let (x, y) = self.waypoint;
+        if action == &Action::Left {
+            // go the other direction
+            degrees *= -1;
+        }
+
+        self.waypoint = match degrees {
+            -180 | 180 => (-x, -y), // flip around
+            -90 | 270 => (-y, x),   // left
+            90 | -270 => (y, -x),   // right
+            n => panic!("Unknown rotation {}", n),
+        };
+    }
+
+    fn move_by_waypoint(&mut self, times: i32) {
+        let (x, y) = self.location;
+        let (w_x, w_y) = self.waypoint;
+        self.location = (x + (w_x * times), y + (w_y * times));
+    }
+
+    fn navigate_multiple(&mut self, instructions: &[Instruction]) {
         for instruction in instructions.iter() {
-            self.execute(instruction);
+            self.navigate(instruction);
+        }
+    }
+
+    fn navigate_by_waypoint_multiple(&mut self, instructions: &[Instruction]) {
+        for instruction in instructions.iter() {
+            self.navigate_by_waypoint(instruction);
         }
     }
 }
@@ -275,7 +331,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ship_execute() {
+    fn test_ship_navigate() {
         let instructions = vec![
             Instruction {
                 action: Action::Forward,
@@ -302,10 +358,75 @@ mod tests {
         let expected_ship = Ship {
             facing: Direction::South,
             location: (8, 17),
+            waypoint: (-1, 10),
         };
 
         let mut ship = Ship::new();
-        ship.execute_multiple(&instructions);
+        ship.navigate_multiple(&instructions);
         assert_eq!(ship, expected_ship);
+    }
+
+    #[test]
+    fn test_ship_navigate_by_waypoint() {
+        let instructions = vec![
+            Instruction {
+                action: Action::Forward,
+                value: 10,
+            },
+            Instruction {
+                action: Action::North,
+                value: 3,
+            },
+            Instruction {
+                action: Action::Forward,
+                value: 7,
+            },
+            Instruction {
+                action: Action::Right,
+                value: 90,
+            },
+            Instruction {
+                action: Action::Forward,
+                value: 11,
+            },
+        ];
+
+        let expected_ship = Ship {
+            facing: Direction::East,
+            location: (72, 214),
+            waypoint: (10, 4),
+        };
+
+        let mut ship = Ship::new();
+        ship.navigate_by_waypoint_multiple(&instructions);
+        assert_eq!(ship, expected_ship);
+    }
+
+    #[test]
+    fn test_ship_rotate_waypoint() {
+        let mut ship = Ship::new();
+        assert_eq!(
+            ship.waypoint,
+            (-1, 10),
+            "Did not start with the right waypoint"
+        );
+
+        ship.rotate_waypoint(&Action::Left, 90);
+        assert_eq!(ship.waypoint, (-10, -1), "Left 90 degree turn failed");
+
+        ship.rotate_waypoint(&Action::Right, 90);
+        assert_eq!(ship.waypoint, (-1, 10), "Right 90 degree turn failed");
+
+        ship.rotate_waypoint(&Action::Left, 180);
+        assert_eq!(ship.waypoint, (1, -10), "Left 180 degree turn failed");
+
+        ship.rotate_waypoint(&Action::Right, 180);
+        assert_eq!(ship.waypoint, (-1, 10), "Right 180 degree turn failed");
+
+        ship.rotate_waypoint(&Action::Left, 270);
+        assert_eq!(ship.waypoint, (10, 1), "Left 270 degree turn failed");
+
+        ship.rotate_waypoint(&Action::Right, 270);
+        assert_eq!(ship.waypoint, (-1, 10), "Right 270 degree turn failed");
     }
 }
