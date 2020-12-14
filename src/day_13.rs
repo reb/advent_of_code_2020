@@ -71,6 +71,56 @@
 const INPUT: &str = include_str!("../input/day_13.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let (earliest_timestamp, busses) = parse_bus_schedule(INPUT);
+
+    let (earliest_bus, wait_time) = find_earliest_bus(earliest_timestamp, &busses);
+    println!(
+        "The ID of the earliest bus multiplied by the wait time for that bus is: {}",
+        earliest_bus * wait_time
+    );
+}
+fn find_earliest_bus(earliest_timestamp: u32, busses: &[u32]) -> (u32, u32) {
+    busses
+        .iter()
+        .map(|bus_id| (*bus_id, bus_id - (earliest_timestamp % bus_id)))
+        .min_by(|(_, wait_time_a), (_, wait_time_b)| wait_time_a.cmp(&wait_time_b))
+        .expect("Could not find a minimum wait time")
+}
+
+fn parse_bus_schedule(input: &str) -> (u32, Vec<u32>) {
+    let mut lines = input.lines();
+    let earliest_timestamp = lines
+        .next()
+        .expect("No line with the earliest timestamp found")
+        .parse()
+        .expect("Earliest timestamp was not a number");
+    let busses = lines
+        .next()
+        .expect("No line with the busses found")
+        .split(',')
+        .map(str::parse)
+        .filter_map(Result::ok)
+        .collect();
+    (earliest_timestamp, busses)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_bus_schedule() {
+        let input = "939\n7,13,x,x,59,x,31,19";
+
+        let expected_schedule = (939, vec![7, 13, 59, 31, 19]);
+
+        assert_eq!(parse_bus_schedule(input), expected_schedule);
+    }
+
+    #[test]
+    fn test_find_earliest_bus() {
+        let busses = vec![7, 13, 59, 31, 19];
+
+        assert_eq!(find_earliest_bus(939, &busses), (59, 5));
+    }
 }
