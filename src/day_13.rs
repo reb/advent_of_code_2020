@@ -147,6 +147,7 @@
 ///
 /// What is the earliest timestamp such that all of the listed bus IDs depart at
 /// offsets matching their positions in the list?
+use num::integer::lcm;
 
 const INPUT: &str = include_str!("../input/day_13.txt");
 
@@ -158,6 +159,14 @@ pub fn run() {
         "The ID of the earliest bus multiplied by the wait time for that bus is: {}",
         earliest_bus * wait_time
     );
+
+    let contest_schedule = parse_bus_schedule_for_contest(INPUT);
+
+    let contest_timestamp = find_contest_timestamp(100000000000000, contest_schedule);
+    println!(
+        "The earliest timestamp that matches the contest conditions is: {}",
+        contest_timestamp
+    );
 }
 fn find_earliest_bus(earliest_timestamp: u32, busses: &[u32]) -> (u32, u32) {
     busses
@@ -165,6 +174,32 @@ fn find_earliest_bus(earliest_timestamp: u32, busses: &[u32]) -> (u32, u32) {
         .map(|bus_id| (*bus_id, bus_id - (earliest_timestamp % bus_id)))
         .min_by(|(_, wait_time_a), (_, wait_time_b)| wait_time_a.cmp(&wait_time_b))
         .expect("Could not find a minimum wait time")
+}
+
+fn find_contest_timestamp(start_at: u64, mut schedule: Vec<(u64, u64)>) -> u64 {
+    // precalculate the remainder the timestamp % bus operation should have
+    schedule = schedule
+        .into_iter()
+        .map(|(bus, offset)| (bus, (bus - (offset % bus)) % bus))
+        .collect();
+    schedule.sort();
+    schedule.reverse();
+
+    let mut timestamp_to_check = start_at;
+    let mut cycle_size = 1;
+
+    for (bus, remainder) in schedule {
+        // find a timestamp for which the bus has the correct remainder
+        loop {
+            if timestamp_to_check % bus == remainder {
+                break;
+            }
+            timestamp_to_check += cycle_size;
+        }
+        // increase the cycle size to the lowest common multiple of the old cycle and the new bus
+        cycle_size = lcm(cycle_size, bus);
+    }
+    return timestamp_to_check;
 }
 
 fn parse_bus_schedule(input: &str) -> (u32, Vec<u32>) {
@@ -184,6 +219,19 @@ fn parse_bus_schedule(input: &str) -> (u32, Vec<u32>) {
     (earliest_timestamp, busses)
 }
 
+fn parse_bus_schedule_for_contest(input: &str) -> Vec<(u64, u64)> {
+    input
+        .lines()
+        .skip(1) // skip the earliest timestamp
+        .next()
+        .expect("No line with the busses found")
+        .split(',')
+        .enumerate()
+        .map(|(offset, bus_id)| bus_id.parse().map(|bus| (bus, offset as u64)))
+        .filter_map(Result::ok)
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -198,9 +246,65 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_bus_schedule_for_contest() {
+        let input = "939\n7,13,x,x,59,x,31,19";
+
+        let expected_schedule = vec![(7, 0), (13, 1), (59, 4), (31, 6), (19, 7)];
+
+        assert_eq!(parse_bus_schedule_for_contest(input), expected_schedule);
+    }
+
+    #[test]
     fn test_find_earliest_bus() {
         let busses = vec![7, 13, 59, 31, 19];
 
         assert_eq!(find_earliest_bus(939, &busses), (59, 5));
+    }
+
+    #[test]
+    fn test_find_contest_timestamp_1() {
+        let schedule = vec![(7, 0), (13, 1), (59, 4), (31, 6), (19, 7)];
+
+        assert_eq!(find_contest_timestamp(0, schedule), 1068781);
+    }
+
+    #[test]
+    fn test_find_contest_timestamp_2() {
+        // The earliest timestamp that matches the list 17,x,13,19 is 3417.
+        let schedule = vec![(17, 0), (13, 2), (19, 3)];
+
+        assert_eq!(find_contest_timestamp(0, schedule), 3417);
+    }
+
+    #[test]
+    fn test_find_contest_timestamp_3() {
+        // 67,7,59,61 first occurs at timestamp 754018.
+        let schedule = vec![(67, 0), (7, 1), (59, 2), (61, 3)];
+
+        assert_eq!(find_contest_timestamp(0, schedule), 754018);
+    }
+
+    #[test]
+    fn test_find_contest_timestamp_4() {
+        // 67,x,7,59,61 first occurs at timestamp 779210.
+        let schedule = vec![(67, 0), (7, 2), (59, 3), (61, 4)];
+
+        assert_eq!(find_contest_timestamp(0, schedule), 779210);
+    }
+
+    #[test]
+    fn test_find_contest_timestamp_5() {
+        // 67,7,x,59,61 first occurs at timestamp 1261476.
+        let schedule = vec![(67, 0), (7, 1), (59, 3), (61, 4)];
+
+        assert_eq!(find_contest_timestamp(0, schedule), 1261476);
+    }
+
+    #[test]
+    fn test_find_contest_timestamp_6() {
+        // 1789,37,47,1889 first occurs at timestamp 1202161486.
+        let schedule = vec![(1789, 0), (37, 1), (47, 2), (1889, 3)];
+
+        assert_eq!(find_contest_timestamp(0, schedule), 1202161486);
     }
 }
