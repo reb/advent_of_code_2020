@@ -65,10 +65,266 @@
 ///
 /// Execute the initialization program. What is the sum of all values left in
 /// memory after it completes?
+use regex::Regex;
+use std::collections::HashMap;
 
 const INPUT: &str = include_str!("../input/day_14.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let program = parse_program(INPUT);
+
+    let memory = run_program(&program);
+
+    let sum_of_memory: u64 = memory.values().sum();
+    println!(
+        "The sum of all values left in memory after the initialization program completes is: {}",
+        sum_of_memory
+    );
+}
+
+fn run_program(program: &[ProgramStep]) -> Memory {
+    let mut mask = [None].iter().cycle().take(36).cloned().collect();
+    let mut memory = Memory::new();
+
+    for step in program.iter() {
+        match step {
+            ProgramStep::SetMask(new_mask) => mask = new_mask.clone(),
+            ProgramStep::SetMemory(address, value) => {
+                memory.insert(*address, apply_mask(*value, &mask));
+            }
+        }
+    }
+
+    memory
+}
+
+fn apply_mask(value: u64, mask: &Mask) -> u64 {
+    let value_bit_vec = to_bit_vec(value);
+    to_u64(
+        mask.iter()
+            .zip(value_bit_vec.into_iter())
+            .map(|(&mask_bit, value_bit)| match mask_bit {
+                None => value_bit,
+                Some(n) => n,
+            })
+            .collect(),
+    )
+}
+
+fn to_bit_vec(mut n: u64) -> Vec<bool> {
+    let mut bit_vec = Vec::new();
+    // create a vector of 36 bits
+    for _ in 0..36 {
+        bit_vec.push(n % 2 == 1);
+        n /= 2;
+    }
+    bit_vec.reverse();
+    bit_vec
+}
+
+fn to_u64(bit_vec: Vec<bool>) -> u64 {
+    bit_vec
+        .into_iter()
+        .fold(0, |acc, val| acc * 2 + (val as u64))
+}
+
+#[derive(Debug, PartialEq)]
+enum ProgramStep {
+    SetMask(Mask),
+    SetMemory(u32, u64),
+}
+
+type Mask = Vec<Option<bool>>;
+type Memory = HashMap<u32, u64>;
+
+fn parse_program(input: &str) -> Vec<ProgramStep> {
+    input.lines().filter_map(convert_to_program_step).collect()
+}
+
+fn convert_to_program_step(line: &str) -> Option<ProgramStep> {
+    lazy_static! {
+        static ref MASK_RE: Regex = Regex::new(r"^mask = ([10X]{36})$").unwrap();
+        static ref MEM_RE: Regex = Regex::new(r"^mem\[([0-9]+)\] = ([0-9]+)$").unwrap();
+    }
+    if let Some(captures) = MASK_RE.captures(line) {
+        return create_mask_program_step(captures);
+    }
+    if let Some(captures) = MEM_RE.captures(line) {
+        return create_mem_program_step(captures);
+    }
+    None
+}
+
+fn create_mask_program_step(captures: regex::Captures) -> Option<ProgramStep> {
+    match captures
+        .get(1)
+        .map(|mask_match| create_mask(mask_match.as_str()))
+    {
+        Some(mask) => Some(ProgramStep::SetMask(mask)),
+        _ => None,
+    }
+}
+
+fn create_mask(mask_str: &str) -> Mask {
+    mask_str
+        .chars()
+        .map(|c| match c {
+            '1' => Some(true),
+            '0' => Some(false),
+            'X' => None,
+            _ => panic!("Unknown character in mask"),
+        })
+        .collect()
+}
+
+fn create_mem_program_step(captures: regex::Captures) -> Option<ProgramStep> {
+    match (
+        captures
+            .get(1)
+            .and_then(|address_match| address_match.as_str().parse().ok()),
+        captures
+            .get(2)
+            .and_then(|value_match| value_match.as_str().parse().ok()),
+    ) {
+        (Some(address), Some(value)) => Some(ProgramStep::SetMemory(address, value)),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_program() {
+        let input = "\
+            mask = XXXXXXXXXXXXXXXXXXXXXXXXXXXXX1XXXX0X\n\
+            mem[8] = 11\n\
+            mem[7] = 101\n\
+            mem[8] = 0";
+
+        let expected_program = vec![
+            ProgramStep::SetMask(vec![
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(true),
+                None,
+                None,
+                None,
+                None,
+                Some(false),
+                None,
+            ]),
+            ProgramStep::SetMemory(8, 11),
+            ProgramStep::SetMemory(7, 101),
+            ProgramStep::SetMemory(8, 0),
+        ];
+
+        assert_eq!(parse_program(input), expected_program);
+    }
+
+    #[test]
+    fn test_run_program() {
+        let program = vec![
+            ProgramStep::SetMask(vec![
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(true),
+                None,
+                None,
+                None,
+                None,
+                Some(false),
+                None,
+            ]),
+            ProgramStep::SetMemory(8, 11),
+            ProgramStep::SetMemory(7, 101),
+            ProgramStep::SetMemory(8, 0),
+        ];
+
+        let mut expected_memory = Memory::new();
+        expected_memory.insert(7, 101);
+        expected_memory.insert(8, 64);
+
+        assert_eq!(run_program(&program), expected_memory);
+    }
+
+    #[test]
+    fn test_to_bit_vec() {
+        let n = 101;
+
+        let expected_bit_vec = vec![
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false, false, false, false, false, true, true, false, false, true, false, true,
+        ];
+
+        assert_eq!(to_bit_vec(n), expected_bit_vec);
+    }
+
+    #[test]
+    fn test_to_u64() {
+        let bit_vec = vec![
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false, false, false, false, false, true, true, false, false, true, false, true,
+        ];
+        let expected_n = 101;
+
+        assert_eq!(to_u64(bit_vec), expected_n);
+    }
 }
