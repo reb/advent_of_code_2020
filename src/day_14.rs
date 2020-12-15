@@ -65,8 +65,81 @@
 ///
 /// Execute the initialization program. What is the sum of all values left in
 /// memory after it completes?
+///
+/// --- Part Two ---
+///
+/// For some reason, the sea port's computer system still can't communicate with
+/// your ferry's docking program. It must be using version 2 of the decoder
+/// chip!
+///
+/// A version 2 decoder chip doesn't modify the values being written at all.
+/// Instead, it acts as a memory address decoder. Immediately before a value is
+/// written to memory, each bit in the bitmask modifies the corresponding bit of
+/// the destination memory address in the following way:
+///
+///   - If the bitmask bit is 0, the corresponding memory address bit is
+///     unchanged.
+///   - If the bitmask bit is 1, the corresponding memory address bit is
+///     overwritten with 1.
+///   - If the bitmask bit is X, the corresponding memory address bit is
+///     floating.
+///
+/// A floating bit is not connected to anything and instead fluctuates
+/// unpredictably. In practice, this means the floating bits will take on all
+/// possible values, potentially causing many memory addresses to be written all
+/// at once!
+///
+/// For example, consider the following program:
+///
+/// mask = 000000000000000000000000000000X1001X
+/// mem[42] = 100
+/// mask = 00000000000000000000000000000000X0XX
+/// mem[26] = 1
+///
+/// When this program goes to write to memory address 42, it first applies the
+/// bitmask:
+///
+/// address: 000000000000000000000000000000101010  (decimal 42)
+/// mask:    000000000000000000000000000000X1001X
+/// result:  000000000000000000000000000000X1101X
+///
+/// After applying the mask, four bits are overwritten, three of which are
+/// different, and two of which are floating. Floating bits take on every
+/// possible combination of values; with two floating bits, four actual memory
+/// addresses are written:
+///
+/// 000000000000000000000000000000011010  (decimal 26)
+/// 000000000000000000000000000000011011  (decimal 27)
+/// 000000000000000000000000000000111010  (decimal 58)
+/// 000000000000000000000000000000111011  (decimal 59)
+///
+/// Next, the program is about to write to memory address 26 with a different
+/// bitmask:
+///
+/// address: 000000000000000000000000000000011010  (decimal 26)
+/// mask:    00000000000000000000000000000000X0XX
+/// result:  00000000000000000000000000000001X0XX
+///
+/// This results in an address with three floating bits, causing writes to eight
+/// memory addresses:
+///
+/// 000000000000000000000000000000010000  (decimal 16)
+/// 000000000000000000000000000000010001  (decimal 17)
+/// 000000000000000000000000000000010010  (decimal 18)
+/// 000000000000000000000000000000010011  (decimal 19)
+/// 000000000000000000000000000000011000  (decimal 24)
+/// 000000000000000000000000000000011001  (decimal 25)
+/// 000000000000000000000000000000011010  (decimal 26)
+/// 000000000000000000000000000000011011  (decimal 27)
+///
+/// The entire 36-bit address space still begins initialized to the value 0 at
+/// every address, and you still need the sum of all values left in memory at
+/// the end of the program. In this example, the sum is 208.
+///
+/// Execute the initialization program using an emulator for a version 2 decoder
+/// chip. What is the sum of all values left in memory after it completes?
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 const INPUT: &str = include_str!("../input/day_14.txt");
 
@@ -74,11 +147,17 @@ pub fn run() {
     let program = parse_program(INPUT);
 
     let memory = run_program(&program);
-
     let sum_of_memory: u64 = memory.values().sum();
     println!(
         "The sum of all values left in memory after the initialization program completes is: {}",
         sum_of_memory
+    );
+
+    let memory_v2 = run_program_v2(&program);
+    let sum_of_memory_v2: u64 = memory_v2.values().sum();
+    println!(
+        "The sum of all values left in memory after emulating v2 of the decoder chip is: {}",
+        sum_of_memory_v2
     );
 }
 
@@ -91,6 +170,24 @@ fn run_program(program: &[ProgramStep]) -> Memory {
             ProgramStep::SetMask(new_mask) => mask = new_mask.clone(),
             ProgramStep::SetMemory(address, value) => {
                 memory.insert(*address, apply_mask(*value, &mask));
+            }
+        }
+    }
+
+    memory
+}
+
+fn run_program_v2(program: &[ProgramStep]) -> Memory {
+    let mut mask = [None].iter().cycle().take(36).cloned().collect();
+    let mut memory = Memory::new();
+
+    for step in program.iter() {
+        match step {
+            ProgramStep::SetMask(new_mask) => mask = new_mask.clone(),
+            ProgramStep::SetMemory(address, value) => {
+                for decoded_address in decode_address(*address, &mask).iter() {
+                    memory.insert(*decoded_address, *value);
+                }
             }
         }
     }
@@ -111,6 +208,39 @@ fn apply_mask(value: u64, mask: &Mask) -> u64 {
     )
 }
 
+fn decode_address(address: u64, mask: &Mask) -> HashSet<u64> {
+    let address_bit_vec = to_bit_vec(address);
+
+    let masked_address = mask
+        .iter()
+        .zip(address_bit_vec.into_iter())
+        .map(|(&mask_bit, address_bit)| match mask_bit {
+            None => None,
+            Some(true) => Some(true),
+            Some(false) => Some(address_bit),
+        })
+        .collect();
+
+    expand_masked_address(masked_address)
+}
+
+fn expand_masked_address(masked_address: Mask) -> HashSet<u64> {
+    masked_address
+        .into_iter()
+        .fold(vec![0].into_iter().collect(), |addresses, bit| {
+            addresses
+                .into_iter()
+                .flat_map(|address| {
+                    let shifted_address = address << 1;
+                    match bit {
+                        None => vec![shifted_address + 1, shifted_address],
+                        Some(a) => vec![shifted_address + (a as u64)],
+                    }
+                })
+                .collect()
+        })
+}
+
 fn to_bit_vec(mut n: u64) -> Vec<bool> {
     let mut bit_vec = Vec::new();
     // create a vector of 36 bits
@@ -125,17 +255,17 @@ fn to_bit_vec(mut n: u64) -> Vec<bool> {
 fn to_u64(bit_vec: Vec<bool>) -> u64 {
     bit_vec
         .into_iter()
-        .fold(0, |acc, val| acc * 2 + (val as u64))
+        .fold(0, |acc, val| (acc << 1) + (val as u64))
 }
 
 #[derive(Debug, PartialEq)]
 enum ProgramStep {
     SetMask(Mask),
-    SetMemory(u32, u64),
+    SetMemory(u64, u64),
 }
 
 type Mask = Vec<Option<bool>>;
-type Memory = HashMap<u32, u64>;
+type Memory = HashMap<u64, u64>;
 
 fn parse_program(input: &str) -> Vec<ProgramStep> {
     input.lines().filter_map(convert_to_program_step).collect()
@@ -304,6 +434,108 @@ mod tests {
     }
 
     #[test]
+    fn test_run_program_v2() {
+        // mask = 000000000000000000000000000000X1001X
+        // mem[42] = 100
+        // mask = 00000000000000000000000000000000X0XX
+        // mem[26] = 1
+        let program = vec![
+            ProgramStep::SetMask(vec![
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                None,
+                Some(true),
+                Some(false),
+                Some(false),
+                Some(true),
+                None,
+            ]),
+            ProgramStep::SetMemory(42, 100),
+            ProgramStep::SetMask(vec![
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                Some(false),
+                None,
+                Some(false),
+                None,
+                None,
+            ]),
+            ProgramStep::SetMemory(26, 1),
+        ];
+
+        let mut expected_memory = Memory::new();
+        expected_memory.insert(16, 1);
+        expected_memory.insert(17, 1);
+        expected_memory.insert(18, 1);
+        expected_memory.insert(19, 1);
+        expected_memory.insert(24, 1);
+        expected_memory.insert(25, 1);
+        expected_memory.insert(26, 1);
+        expected_memory.insert(27, 1);
+        expected_memory.insert(58, 100);
+        expected_memory.insert(59, 100);
+
+        assert_eq!(run_program_v2(&program), expected_memory);
+    }
+
+    #[test]
     fn test_to_bit_vec() {
         let n = 101;
 
@@ -326,5 +558,55 @@ mod tests {
         let expected_n = 101;
 
         assert_eq!(to_u64(bit_vec), expected_n);
+    }
+
+    #[test]
+    fn test_expand_masked_address() {
+        let masked_address = vec![
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(false),
+            None,
+            Some(true),
+            Some(true),
+            Some(false),
+            Some(true),
+            None,
+        ];
+
+        let mut expected_addresses = HashSet::new();
+        expected_addresses.insert(26);
+        expected_addresses.insert(27);
+        expected_addresses.insert(58);
+        expected_addresses.insert(59);
+
+        assert_eq!(expand_masked_address(masked_address), expected_addresses)
     }
 }
