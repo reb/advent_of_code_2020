@@ -59,8 +59,101 @@
 ///   - Given the starting numbers 3,1,2, the 2020th number spoken is 1836.
 ///
 /// Given your starting numbers, what will be the 2020th number spoken?
+use std::collections::HashMap;
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let start_sequence = vec![2, 0, 6, 12, 1, 3];
+
+    let spoken_at_turn_2020 = play_memory_game(&start_sequence, 2020);
+
+    println!("The 2020th number spoken is: {}", spoken_at_turn_2020);
+}
+
+fn play_memory_game(start_sequence: &[u32], goal: usize) -> u32 {
+    // keep track of which turn a number was said on last
+    let mut memory = HashMap::new();
+
+    let mut number = *start_sequence.get(0).expect("Start sequence is empty");
+
+    for turn in 1..goal {
+        let new_number = match start_sequence.get(turn) {
+            Some(&starting_number) => starting_number,
+            None => match memory.get(&number) {
+                Some(turn_number_was_last_said) => (turn - turn_number_was_last_said) as u32,
+                None => 0,
+            },
+        };
+        memory.insert(number, turn);
+        number = new_number;
+    }
+
+    number
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_play_memory_game_first_10_turns() {
+        let start_sequence = vec![0, 3, 6];
+        assert_eq!(play_memory_game(&start_sequence, 1), 0);
+        assert_eq!(play_memory_game(&start_sequence, 2), 3);
+        assert_eq!(play_memory_game(&start_sequence, 3), 6);
+        assert_eq!(play_memory_game(&start_sequence, 4), 0);
+        assert_eq!(play_memory_game(&start_sequence, 5), 3);
+        assert_eq!(play_memory_game(&start_sequence, 6), 3);
+        assert_eq!(play_memory_game(&start_sequence, 7), 1);
+        assert_eq!(play_memory_game(&start_sequence, 8), 0);
+        assert_eq!(play_memory_game(&start_sequence, 9), 4);
+        assert_eq!(play_memory_game(&start_sequence, 10), 0);
+    }
+
+    #[test]
+    fn test_play_memory_game_long_1() {
+        let start_sequence = vec![0, 3, 6];
+        assert_eq!(play_memory_game(&start_sequence, 2020), 436);
+    }
+
+    #[test]
+    fn test_play_memory_game_long_2() {
+        // Given the starting numbers 1,3,2, the 2020th number spoken is 1.
+        let start_sequence = vec![1, 3, 2];
+        assert_eq!(play_memory_game(&start_sequence, 2020), 1);
+    }
+
+    #[test]
+    fn test_play_memory_game_long_3() {
+        // Given the starting numbers 2,1,3, the 2020th number spoken is 10.
+        let start_sequence = vec![2, 1, 3];
+        assert_eq!(play_memory_game(&start_sequence, 2020), 10);
+    }
+
+    #[test]
+    fn test_play_memory_game_long_4() {
+        // Given the starting numbers 1,2,3, the 2020th number spoken is 27.
+        let start_sequence = vec![1, 2, 3];
+        assert_eq!(play_memory_game(&start_sequence, 2020), 27);
+    }
+
+    #[test]
+    fn test_play_memory_game_long_5() {
+        // Given the starting numbers 2,3,1, the 2020th number spoken is 78.
+        let start_sequence = vec![2, 3, 1];
+        assert_eq!(play_memory_game(&start_sequence, 2020), 78);
+    }
+
+    #[test]
+    fn test_play_memory_game_long_6() {
+        // Given the starting numbers 3,2,1, the 2020th number spoken is 438.
+        let start_sequence = vec![3, 2, 1];
+        assert_eq!(play_memory_game(&start_sequence, 2020), 438);
+    }
+
+    #[test]
+    fn test_play_memory_game_long_7() {
+        // Given the starting numbers 3,1,2, the 2020th number spoken is 1836.
+        let start_sequence = vec![3, 1, 2];
+        assert_eq!(play_memory_game(&start_sequence, 2020), 1836);
+    }
 }
