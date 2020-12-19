@@ -69,7 +69,42 @@
 ///
 /// Consider the validity of the nearby tickets you scanned. What is your ticket
 /// scanning error rate?
+///
+/// --- Part Two ---
+///
+/// Now that you've identified which tickets contain invalid values, discard
+/// those tickets entirely. Use the remaining valid tickets to determine which
+/// field is which.
+///
+/// Using the valid ranges for each field, determine what order the fields
+/// appear on the tickets. The order is consistent between all tickets: if seat
+/// is the third field, it is the third field on every ticket, including your
+/// ticket.
+///
+/// For example, suppose you have the following notes:
+///
+/// class: 0-1 or 4-19
+/// row: 0-5 or 8-19
+/// seat: 0-13 or 16-19
+///
+/// your ticket:
+/// 11,12,13
+///
+/// nearby tickets:
+/// 3,9,18
+/// 15,1,5
+/// 5,14,9
+///
+/// Based on the nearby tickets in the above example, the first position must be
+/// row, the second position must be class, and the third position must be seat;
+/// you can conclude that in your ticket, class is 12, row is 11, and seat is
+/// 13.
+///
+/// Once you work out which field is which, look for the six fields on your
+/// ticket that start with the word departure. What do you get if you multiply
+/// those six values together?
 use regex::Regex;
+use std::collections::{HashMap, HashSet};
 
 const INPUT: &str = include_str!("../input/day_16.txt");
 
@@ -78,17 +113,96 @@ pub fn run() {
 
     let error_rate = scanning_error_rate(&notes);
     println!("The ticket scanning error rate is: {}", error_rate);
+
+    let rule_mapping = map_rules_to_tickets(&notes);
+    let departure_product: u64 = rule_mapping
+        .iter()
+        .filter_map(|(rule_name, &column)| {
+            if rule_name.starts_with("departure") {
+                Some(*notes.your_ticket.get(column).unwrap() as u64)
+            } else {
+                None
+            }
+        })
+        .product();
+    println!(
+        "The fields starting with the word departure in your ticket multipied is: {}",
+        departure_product
+    );
 }
 
 fn scanning_error_rate(notes: &Notes) -> u32 {
-    let all_ranges: Vec<&Range> = notes.rules.iter().flat_map(|rule| &rule.ranges).collect();
-
     notes
         .nearby_tickets
         .iter()
         .flatten()
-        .filter(|number| all_ranges.iter().all(|range| !range.contains(number)))
+        .filter(|number| notes.rules.iter().all(|rule| !rule.valid(number)))
         .sum()
+}
+
+fn map_rules_to_tickets<'a>(notes: &'a Notes) -> HashMap<&'a str, usize> {
+    let valid_tickets = filter_out_invalid_tickets(notes);
+
+    // create a mapping to collect every possible column for every rule
+    let mut mapping: HashMap<&str, HashSet<usize>> = notes
+        .rules
+        .iter()
+        .map(|rule| {
+            (
+                rule.name,
+                (0..notes.your_ticket.len())
+                    .into_iter()
+                    .filter(|i| {
+                        valid_tickets
+                            .iter()
+                            .all(|ticket| rule.valid(ticket.get(*i).unwrap()))
+                    })
+                    .collect(),
+            )
+        })
+        .collect();
+
+    // initialize a vector to hold the final mappings
+    let mut final_mapping = HashMap::new();
+
+    // keep trying to lock in columns to rules
+    loop {
+        let mut found = None;
+        for (rule_name, columns) in mapping.iter() {
+            if columns.len() == 1 {
+                // if there is only one column then that must belong to this rule
+                let found_column = *columns.iter().next().unwrap();
+                final_mapping.insert(*rule_name, found_column);
+                found = Some((*rule_name, found_column));
+                break;
+            }
+        }
+
+        if let Some((found_rule, found_column)) = found {
+            // remove the locked in rule and column from the mapping
+            mapping.remove(found_rule);
+            for columns in mapping.values_mut() {
+                columns.remove(&found_column);
+            }
+        } else {
+            // just stop if no new column could be locked in
+            break;
+        }
+    }
+
+    final_mapping
+}
+
+fn filter_out_invalid_tickets<'a>(notes: &'a Notes) -> Vec<&'a Ticket> {
+    notes
+        .nearby_tickets
+        .iter()
+        .filter(|numbers| {
+            numbers
+                .iter()
+                .all(|number| notes.rules.iter().any(|rule| rule.valid(number)))
+        })
+        .collect()
 }
 
 fn parse_notes(input: &str) -> Notes {
@@ -173,6 +287,12 @@ struct Notes<'a> {
 struct Rule<'a> {
     name: &'a str,
     ranges: Vec<Range>,
+}
+
+impl Rule<'_> {
+    fn valid(&self, value: &u32) -> bool {
+        self.ranges.iter().any(|range| range.contains(value))
+    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -271,5 +391,73 @@ mod tests {
         };
 
         assert_eq!(scanning_error_rate(&notes), 71);
+    }
+
+    #[test]
+    fn test_map_rules_to_tickets() {
+        // class: 0-1 or 4-19
+        // row: 0-5 or 8-19
+        // seat: 0-13 or 16-19
+        //
+        // your ticket:
+        // 11,12,13
+        //
+        // nearby tickets:
+        // 3,9,18
+        // 15,1,5
+        // 5,14,9
+        let rules = vec![
+            Rule {
+                name: "class",
+                ranges: vec![Range { min: 0, max: 1 }, Range { min: 4, max: 19 }],
+            },
+            Rule {
+                name: "row",
+                ranges: vec![Range { min: 0, max: 5 }, Range { min: 8, max: 19 }],
+            },
+            Rule {
+                name: "seat",
+                ranges: vec![Range { min: 0, max: 13 }, Range { min: 16, max: 19 }],
+            },
+        ];
+        let your_ticket = vec![11, 12, 13];
+        let nearby_tickets = vec![vec![3, 9, 18], vec![15, 1, 5], vec![5, 14, 9]];
+
+        let notes = Notes {
+            rules,
+            your_ticket,
+            nearby_tickets,
+        };
+
+        // Based on the nearby tickets in the above example, the first position must be
+        // row, the second position must be class, and the third position must be seat;
+        let mut expected_mapping = HashMap::new();
+        expected_mapping.insert("row", 0);
+        expected_mapping.insert("class", 1);
+        expected_mapping.insert("seat", 2);
+
+        assert_eq!(map_rules_to_tickets(&notes), expected_mapping);
+    }
+
+    #[test]
+    fn test_filter_out_invalid_tickets() {
+        let rules = vec![Rule {
+            name: "class",
+            ranges: vec![Range { min: 0, max: 2 }, Range { min: 4, max: 6 }],
+        }];
+        let your_ticket = vec![1];
+        let nearby_tickets = vec![vec![3], vec![5], vec![2]];
+
+        let notes = Notes {
+            rules,
+            your_ticket,
+            nearby_tickets,
+        };
+
+        let t1 = vec![5];
+        let t2 = vec![2];
+        let expected_valid_tickets = vec![&t1, &t2];
+
+        assert_eq!(filter_out_invalid_tickets(&notes), expected_valid_tickets);
     }
 }
