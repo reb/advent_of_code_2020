@@ -168,10 +168,176 @@
 ///
 /// Starting with your given initial configuration, simulate six cycles. How
 /// many cubes are left in the active state after the sixth cycle?
+use num::iter::range_inclusive;
+use std::collections::{HashMap, HashSet};
 
 const INPUT: &str = include_str!("../input/day_17.txt");
 
 pub fn run() {
-    println!("Not implemented yet");
-    unimplemented!();
+    let starting_cubes = parse_cubes(INPUT);
+
+    let mut cubes = starting_cubes.clone();
+    for _ in 0..6 {
+        cubes = iterate(cubes);
+    }
+
+    println!(
+        "After simulating six cycles the amount of cubes left in the activated state is: {}",
+        cubes.len()
+    );
+}
+
+fn neighbours(&(x, y, z): &Point) -> Vec<Point> {
+    range_inclusive(-1, 1)
+        .map(move |dz| {
+            range_inclusive(-1, 1)
+                .map(move |dy| range_inclusive(-1, 1).map(move |dx| (x + dx, y + dy, z + dz)))
+                .flatten()
+        })
+        .flatten()
+        .filter(|point| *point != (x, y, z))
+        .collect()
+}
+
+fn get_neighbour_counts(cubes: &Cubes) -> HashMap<Point, usize> {
+    cubes
+        .iter()
+        .flat_map(neighbours)
+        .fold(HashMap::new(), |mut map, neighbour| {
+            *map.entry(neighbour).or_insert(0) += 1;
+            map
+        })
+}
+
+fn iterate(cubes: Cubes) -> Cubes {
+    let neighbour_counts = get_neighbour_counts(&cubes);
+
+    neighbour_counts
+        .iter()
+        .filter_map(|(point, count)| {
+            match count {
+                2 => cubes.get(point), // only active if cube already is active
+                3 => Some(point),      // always activate
+                _ => None,
+            }
+        })
+        .cloned()
+        .collect()
+}
+
+type Point = (i32, i32, i32);
+type Cubes = HashSet<Point>;
+
+fn parse_cubes(input: &str) -> Cubes {
+    input
+        .lines()
+        .enumerate()
+        .map(|(x, line)| {
+            line.chars().enumerate().filter_map(move |(y, c)| match c {
+                '#' => Some((x as i32, y as i32, 0)),
+                _ => None,
+            })
+        })
+        .flatten()
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_cubes() {
+        let input = ".#.\n..#\n###";
+
+        let mut expected_cubes = Cubes::new();
+        // .#.
+        expected_cubes.insert((0, 1, 0));
+        // ..#
+        expected_cubes.insert((1, 2, 0));
+        // ###
+        expected_cubes.insert((2, 0, 0));
+        expected_cubes.insert((2, 1, 0));
+        expected_cubes.insert((2, 2, 0));
+
+        assert_eq!(parse_cubes(input), expected_cubes);
+    }
+
+    #[test]
+    fn test_neighbours() {
+        let point = (0, 0, 0);
+        let expected_neighbours = vec![
+            (-1, -1, -1),
+            (0, -1, -1),
+            (1, -1, -1),
+            (-1, 0, -1),
+            (0, 0, -1),
+            (1, 0, -1),
+            (-1, 1, -1),
+            (0, 1, -1),
+            (1, 1, -1),
+            (-1, -1, 0),
+            (0, -1, 0),
+            (1, -1, 0),
+            (-1, 0, 0),
+            (1, 0, 0),
+            (-1, 1, 0),
+            (0, 1, 0),
+            (1, 1, 0),
+            (-1, -1, 1),
+            (0, -1, 1),
+            (1, -1, 1),
+            (-1, 0, 1),
+            (0, 0, 1),
+            (1, 0, 1),
+            (-1, 1, 1),
+            (0, 1, 1),
+            (1, 1, 1),
+        ];
+
+        assert_eq!(neighbours(&point), expected_neighbours);
+    }
+
+    #[test]
+    fn test_iterate() {
+        let mut cubes = Cubes::new();
+        // .#.
+        cubes.insert((0, 1, 0));
+        // ..#
+        cubes.insert((1, 2, 0));
+        // ###
+        cubes.insert((2, 0, 0));
+        cubes.insert((2, 1, 0));
+        cubes.insert((2, 2, 0));
+
+        let mut expected_cubes = Cubes::new();
+        // view shifted down one (x + 1)
+        // z=-1
+        // #..
+        expected_cubes.insert((1, 0, -1));
+        // ..#
+        expected_cubes.insert((2, 2, -1));
+        // .#.
+        expected_cubes.insert((3, 1, -1));
+
+        // z=0
+        // #.#
+        expected_cubes.insert((1, 0, 0));
+        expected_cubes.insert((1, 2, 0));
+        // .##
+        expected_cubes.insert((2, 1, 0));
+        expected_cubes.insert((2, 2, 0));
+        // .#.
+        expected_cubes.insert((3, 1, 0));
+
+        // z=1
+        // #..
+        expected_cubes.insert((1, 0, 1));
+        // ..#
+        expected_cubes.insert((2, 2, 1));
+        // .#.
+        expected_cubes.insert((3, 1, 1));
+
+        assert_eq!(iterate(cubes), expected_cubes);
+    }
 }
