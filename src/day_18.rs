@@ -49,6 +49,36 @@
 /// Before you can help with the homework, you need to understand it yourself.
 /// Evaluate the expression on each line of the homework; what is the sum of the
 /// resulting values?
+///
+/// --- Part Two ---
+///
+/// You manage to answer the child's questions and they finish part 1 of their
+/// homework, but get stuck when they reach the next section: advanced math.
+///
+/// Now, addition and multiplication have different precedence levels, but
+/// they're not the ones you're familiar with. Instead, addition is evaluated
+/// before multiplication.
+///
+/// For example, the steps to evaluate the expression 1 + 2 * 3 + 4 * 5 + 6 are
+/// now as follows:
+///
+/// 1 + 2 * 3 + 4 * 5 + 6
+///   3   * 3 + 4 * 5 + 6
+///   3   *   7   * 5 + 6
+///   3   *   7   *  11
+///      21       *  11
+///          231
+///
+/// Here are the other examples from above:
+///
+///     1 + (2 * 3) + (4 * (5 + 6)) still becomes 51.
+///     2 * 3 + (4 * 5) becomes 46.
+///     5 + (8 * 3 + 9 + 3 * 4 * 3) becomes 1445.
+///     5 * 9 * (7 * 3 * 3 + 9 * 3 + (8 + 6 * 4)) becomes 669060.
+///     ((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2 becomes 23340.
+///
+/// What do you get if you add up the results of evaluating the homework
+/// problems using these new rules?
 use std::ops::{Add, Mul};
 
 const INPUT: &str = include_str!("../input/day_18.txt");
@@ -59,6 +89,11 @@ pub fn run() {
     println!(
         "The sum of all lines of homework is: {}",
         homework.lines().map(evaluate).sum::<u64>()
+    );
+
+    println!(
+        "Adding up the results of all the homework problems using the new rules gives: {}",
+        homework.lines().map(advanced_evaluate).sum::<u64>()
     );
 }
 
@@ -96,6 +131,46 @@ fn sub_evaluate(characters: &mut impl Iterator<Item = char>) -> u64 {
         }
     }
     total.expect("Expected a non-empty expression")
+}
+
+fn advanced_evaluate(expression: &str) -> u64 {
+    let mut characters = expression.chars().filter(|&c| c != ' ');
+    advanced_sub_evaluate(&mut characters)
+}
+
+fn advanced_sub_evaluate(characters: &mut impl Iterator<Item = char>) -> u64 {
+    let mut number_stack = Vec::new();
+    let mut is_addition = false;
+
+    while let Some(character) = characters.next() {
+        let mut number = None;
+        match character {
+            '(' => number = Some(advanced_sub_evaluate(characters)),
+            ')' => return number_stack.iter().product(),
+            '*' => (),
+            '+' => is_addition = true,
+            digit => {
+                number = Some(
+                    digit
+                        .to_digit(10)
+                        .expect("Expecting non-operators to be digits") as u64,
+                )
+            }
+        }
+        match (number_stack.as_slice(), is_addition, number) {
+            ([], false, Some(n)) => number_stack.push(n),
+            (_, true, Some(n)) => {
+                let last = number_stack
+                    .pop()
+                    .expect("Expected a number before the addition");
+                number_stack.push(last + n);
+                is_addition = false;
+            }
+            (_, false, Some(n)) => number_stack.push(n), // multiplication is handled at return
+            (_, _, None) => (),
+        }
+    }
+    number_stack.iter().product()
 }
 
 #[cfg(test)]
@@ -142,5 +217,47 @@ mod tests {
         let expression = "((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2";
 
         assert_eq!(evaluate(expression), 13632);
+    }
+
+    #[test]
+    fn test_advanced_evaluate_1() {
+        let expression = "1 + 2 * 3 + 4 * 5 + 6";
+
+        assert_eq!(advanced_evaluate(expression), 231);
+    }
+
+    #[test]
+    fn test_advanced_evaluate_2() {
+        let expression = "1 + (2 * 3) + (4 * (5 + 6))";
+
+        assert_eq!(advanced_evaluate(expression), 51);
+    }
+
+    #[test]
+    fn test_advanced_evaluate_3() {
+        let expression = "2 * 3 + (4 * 5)";
+
+        assert_eq!(advanced_evaluate(expression), 46);
+    }
+
+    #[test]
+    fn test_advanced_evaluate_4() {
+        let expression = "5 + (8 * 3 + 9 + 3 * 4 * 3)";
+
+        assert_eq!(advanced_evaluate(expression), 1445);
+    }
+
+    #[test]
+    fn test_advanced_evaluate_5() {
+        let expression = "5 * 9 * (7 * 3 * 3 + 9 * 3 + (8 + 6 * 4))";
+
+        assert_eq!(advanced_evaluate(expression), 669060);
+    }
+
+    #[test]
+    fn test_advanced_evaluate_6() {
+        let expression = "((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2";
+
+        assert_eq!(advanced_evaluate(expression), 23340);
     }
 }
