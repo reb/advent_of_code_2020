@@ -82,6 +82,7 @@
 ///
 /// How many messages completely match rule 0?
 use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::prelude::EdgeRef;
 use std::collections::HashMap;
 
 const INPUT: &str = include_str!("../input/day_19.txt");
@@ -91,6 +92,43 @@ pub fn run() {
 
     let rules = parse_rules(input_blocks.next().expect("Expected a rules block"));
     let (possibility_tree, root) = build_possibility_tree(&rules);
+
+    let messages = input_blocks.next().expect("Expected a messages block");
+
+    let matching_rule_0 = messages
+        .lines()
+        .filter(|message| validate_message(message, &possibility_tree, root))
+        .count();
+    println!(
+        "The amount of messages that completely match rule 0 is: {}",
+        matching_rule_0
+    );
+}
+
+fn validate_message(message: &str, tree: &PossibilityTree, root: NodeIndex) -> bool {
+    // start with a head at the root of the tree
+    let mut heads = vec![root];
+
+    // walk the tree filtering out edges that are not matching the letter in the message
+    for letter in message.chars() {
+        heads = heads
+            .into_iter()
+            .map(|node| tree.edges(node))
+            .flatten()
+            .filter_map(|edge| {
+                if edge.weight() == &letter {
+                    Some(edge.target())
+                } else {
+                    None
+                }
+            })
+            .collect();
+    }
+
+    // it is a valid message if one of the heads ended up at the end
+    heads
+        .into_iter()
+        .any(|node| tree.edges(node).next().is_none())
 }
 
 type PossibilityTree = DiGraph<u32, char>;
@@ -298,5 +336,61 @@ mod tests {
             |_, _| true,
             |edge_a, edge_b| edge_a == edge_b,
         ));
+    }
+
+    #[test]
+    fn test_validate_message() {
+        let mut tree = PossibilityTree::new();
+        let root = tree.add_node(0);
+
+        // {4} - 1 - 5
+        let a = tree.add_node(0);
+        tree.add_edge(root, a, 'a');
+
+        // 4 - ({2} - 3) | (3 - 2) - 5
+        let aa_2 = tree.add_node(0);
+        tree.add_edge(a, aa_2, 'a');
+        let ab_2 = tree.add_node(0);
+        tree.add_edge(a, ab_2, 'b');
+        let axx_2 = tree.add_node(0);
+        tree.add_edge(aa_2, axx_2, 'a');
+        tree.add_edge(ab_2, axx_2, 'b');
+
+        // 4 - (2 - 3) | ({3} - 2) - 5
+        let aa_3 = tree.add_node(0);
+        tree.add_edge(a, aa_3, 'a');
+        let ab_3 = tree.add_node(0);
+        tree.add_edge(a, ab_3, 'b');
+        let axx_3 = tree.add_node(0);
+        tree.add_edge(aa_3, axx_3, 'b');
+        tree.add_edge(ab_3, axx_3, 'a');
+
+        // 4 - (2 - {3}) | (3 - 2) - 5
+        let axxa_3 = tree.add_node(0);
+        tree.add_edge(axx_2, axxa_3, 'a');
+        let axxb_3 = tree.add_node(0);
+        tree.add_edge(axx_2, axxb_3, 'b');
+
+        // 4 - (2 - 3) | (3 - {2}) - 5
+        let axxa_2 = tree.add_node(0);
+        tree.add_edge(axx_3, axxa_2, 'a');
+        let axxb_2 = tree.add_node(0);
+        tree.add_edge(axx_3, axxb_2, 'b');
+
+        let axxxx = tree.add_node(0);
+        tree.add_edge(axxa_3, axxxx, 'b');
+        tree.add_edge(axxb_3, axxxx, 'a');
+        tree.add_edge(axxa_2, axxxx, 'a');
+        tree.add_edge(axxb_2, axxxx, 'b');
+
+        // 4 - 1 - {5}
+        let axxxxb = tree.add_node(0);
+        tree.add_edge(axxxx, axxxxb, 'b');
+
+        assert!(validate_message("ababbb", &tree, root));
+        assert!(!validate_message("bababa", &tree, root));
+        assert!(validate_message("abbbab", &tree, root));
+        assert!(!validate_message("aaabbb", &tree, root));
+        assert!(!validate_message("aaaabbb", &tree, root));
     }
 }
