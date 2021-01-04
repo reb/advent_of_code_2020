@@ -207,12 +207,9 @@ fn validate_message(message: &str, tree: &PossibilityTree, root: NodeIndex) -> b
             .into_iter()
             .map(|node| tree.edges(node))
             .flatten()
-            .filter_map(|edge| {
-                if edge.weight() == &letter {
-                    Some(edge.target())
-                } else {
-                    None
-                }
+            .filter_map(|edge| match edge.weight() {
+                Branch::Normal(c) if c == &letter => Some(edge.target()),
+                _ => None,
             })
             .collect();
     }
@@ -223,7 +220,11 @@ fn validate_message(message: &str, tree: &PossibilityTree, root: NodeIndex) -> b
         .any(|node| tree.edges(node).next().is_none())
 }
 
-type PossibilityTree = DiGraph<u32, char>;
+type PossibilityTree = DiGraph<u32, Branch>;
+#[derive(Debug, PartialEq)]
+enum Branch {
+    Normal(char),
+}
 
 fn build_possibility_tree(rules: &Rules) -> (PossibilityTree, NodeIndex) {
     let mut tree = PossibilityTree::new();
@@ -245,7 +246,7 @@ fn expand_chain(
 ) {
     match rules.get(rule).map(|options| options.as_slice()) {
         Some([RuleOption::Literal(letter)]) => {
-            tree.add_edge(begin, end, *letter);
+            tree.add_edge(begin, end, Branch::Normal(*letter));
         }
         Some(chains) => {
             for chain in chains.iter() {
@@ -379,47 +380,47 @@ mod tests {
 
         // {4} - 1 - 5
         let a = expected_tree.add_node(0);
-        expected_tree.add_edge(root, a, 'a');
+        expected_tree.add_edge(root, a, Branch::Normal('a'));
 
         // 4 - ({2} - 3) | (3 - 2) - 5
         let aa_2 = expected_tree.add_node(0);
-        expected_tree.add_edge(a, aa_2, 'a');
+        expected_tree.add_edge(a, aa_2, Branch::Normal('a'));
         let ab_2 = expected_tree.add_node(0);
-        expected_tree.add_edge(a, ab_2, 'b');
+        expected_tree.add_edge(a, ab_2, Branch::Normal('b'));
         let axx_2 = expected_tree.add_node(0);
-        expected_tree.add_edge(aa_2, axx_2, 'a');
-        expected_tree.add_edge(ab_2, axx_2, 'b');
+        expected_tree.add_edge(aa_2, axx_2, Branch::Normal('a'));
+        expected_tree.add_edge(ab_2, axx_2, Branch::Normal('b'));
 
         // 4 - (2 - 3) | ({3} - 2) - 5
         let aa_3 = expected_tree.add_node(0);
-        expected_tree.add_edge(a, aa_3, 'a');
+        expected_tree.add_edge(a, aa_3, Branch::Normal('a'));
         let ab_3 = expected_tree.add_node(0);
-        expected_tree.add_edge(a, ab_3, 'b');
+        expected_tree.add_edge(a, ab_3, Branch::Normal('b'));
         let axx_3 = expected_tree.add_node(0);
-        expected_tree.add_edge(aa_3, axx_3, 'b');
-        expected_tree.add_edge(ab_3, axx_3, 'a');
+        expected_tree.add_edge(aa_3, axx_3, Branch::Normal('b'));
+        expected_tree.add_edge(ab_3, axx_3, Branch::Normal('a'));
 
         // 4 - (2 - {3}) | (3 - 2) - 5
         let axxa_3 = expected_tree.add_node(0);
-        expected_tree.add_edge(axx_2, axxa_3, 'a');
+        expected_tree.add_edge(axx_2, axxa_3, Branch::Normal('a'));
         let axxb_3 = expected_tree.add_node(0);
-        expected_tree.add_edge(axx_2, axxb_3, 'b');
+        expected_tree.add_edge(axx_2, axxb_3, Branch::Normal('b'));
 
         // 4 - (2 - 3) | (3 - {2}) - 5
         let axxa_2 = expected_tree.add_node(0);
-        expected_tree.add_edge(axx_3, axxa_2, 'a');
+        expected_tree.add_edge(axx_3, axxa_2, Branch::Normal('a'));
         let axxb_2 = expected_tree.add_node(0);
-        expected_tree.add_edge(axx_3, axxb_2, 'b');
+        expected_tree.add_edge(axx_3, axxb_2, Branch::Normal('b'));
 
         let axxxx = expected_tree.add_node(0);
-        expected_tree.add_edge(axxa_3, axxxx, 'b');
-        expected_tree.add_edge(axxb_3, axxxx, 'a');
-        expected_tree.add_edge(axxa_2, axxxx, 'a');
-        expected_tree.add_edge(axxb_2, axxxx, 'b');
+        expected_tree.add_edge(axxa_3, axxxx, Branch::Normal('b'));
+        expected_tree.add_edge(axxb_3, axxxx, Branch::Normal('a'));
+        expected_tree.add_edge(axxa_2, axxxx, Branch::Normal('a'));
+        expected_tree.add_edge(axxb_2, axxxx, Branch::Normal('b'));
 
         // 4 - 1 - {5}
         let axxxxb = expected_tree.add_node(0);
-        expected_tree.add_edge(axxxx, axxxxb, 'b');
+        expected_tree.add_edge(axxxx, axxxxb, Branch::Normal('b'));
 
         let (actual_tree, _) = build_possibility_tree(&rules);
         assert!(is_isomorphic_matching(
@@ -437,47 +438,47 @@ mod tests {
 
         // {4} - 1 - 5
         let a = tree.add_node(0);
-        tree.add_edge(root, a, 'a');
+        tree.add_edge(root, a, Branch::Normal('a'));
 
         // 4 - ({2} - 3) | (3 - 2) - 5
         let aa_2 = tree.add_node(0);
-        tree.add_edge(a, aa_2, 'a');
+        tree.add_edge(a, aa_2, Branch::Normal('a'));
         let ab_2 = tree.add_node(0);
-        tree.add_edge(a, ab_2, 'b');
+        tree.add_edge(a, ab_2, Branch::Normal('b'));
         let axx_2 = tree.add_node(0);
-        tree.add_edge(aa_2, axx_2, 'a');
-        tree.add_edge(ab_2, axx_2, 'b');
+        tree.add_edge(aa_2, axx_2, Branch::Normal('a'));
+        tree.add_edge(ab_2, axx_2, Branch::Normal('b'));
 
         // 4 - (2 - 3) | ({3} - 2) - 5
         let aa_3 = tree.add_node(0);
-        tree.add_edge(a, aa_3, 'a');
+        tree.add_edge(a, aa_3, Branch::Normal('a'));
         let ab_3 = tree.add_node(0);
-        tree.add_edge(a, ab_3, 'b');
+        tree.add_edge(a, ab_3, Branch::Normal('b'));
         let axx_3 = tree.add_node(0);
-        tree.add_edge(aa_3, axx_3, 'b');
-        tree.add_edge(ab_3, axx_3, 'a');
+        tree.add_edge(aa_3, axx_3, Branch::Normal('b'));
+        tree.add_edge(ab_3, axx_3, Branch::Normal('a'));
 
         // 4 - (2 - {3}) | (3 - 2) - 5
         let axxa_3 = tree.add_node(0);
-        tree.add_edge(axx_2, axxa_3, 'a');
+        tree.add_edge(axx_2, axxa_3, Branch::Normal('a'));
         let axxb_3 = tree.add_node(0);
-        tree.add_edge(axx_2, axxb_3, 'b');
+        tree.add_edge(axx_2, axxb_3, Branch::Normal('b'));
 
         // 4 - (2 - 3) | (3 - {2}) - 5
         let axxa_2 = tree.add_node(0);
-        tree.add_edge(axx_3, axxa_2, 'a');
+        tree.add_edge(axx_3, axxa_2, Branch::Normal('a'));
         let axxb_2 = tree.add_node(0);
-        tree.add_edge(axx_3, axxb_2, 'b');
+        tree.add_edge(axx_3, axxb_2, Branch::Normal('b'));
 
         let axxxx = tree.add_node(0);
-        tree.add_edge(axxa_3, axxxx, 'b');
-        tree.add_edge(axxb_3, axxxx, 'a');
-        tree.add_edge(axxa_2, axxxx, 'a');
-        tree.add_edge(axxb_2, axxxx, 'b');
+        tree.add_edge(axxa_3, axxxx, Branch::Normal('b'));
+        tree.add_edge(axxb_3, axxxx, Branch::Normal('a'));
+        tree.add_edge(axxa_2, axxxx, Branch::Normal('a'));
+        tree.add_edge(axxb_2, axxxx, Branch::Normal('b'));
 
         // 4 - 1 - {5}
         let axxxxb = tree.add_node(0);
-        tree.add_edge(axxxx, axxxxb, 'b');
+        tree.add_edge(axxxx, axxxxb, Branch::Normal('b'));
 
         assert!(validate_message("ababbb", &tree, root));
         assert!(!validate_message("bababa", &tree, root));
